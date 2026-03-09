@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+
+  --font-sans: var(--font-outfit);
+}
+
+:root {
+  /* Light Theme (Lavender & Silk) */
+  --background: #f8f6fb;
+  --foreground: #2a2438;
+  --primary: #a89bc2;
+  --secondary: #d3c4d1;
+  --accent: #e2bb82;
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --scrollbar-track: #ebe5ef;
+  --scrollbar-thumb: #d3c4d1;
+  --scrollbar-thumb-hover: #a89bc2;
+}
+
+:root.dark {
+  /* Dark Theme (Luxury Plum/Gold) */
+  --background: #1d1821;
+  --foreground: #f8f6fb;
+  --primary: #9f8bb8;
+  --secondary: #8a7587;
+  --accent: #d1a562;
+  --glass-bg: rgba(25, 20, 28, 0.6);
+  --glass-border: rgba(159, 139, 184, 0.15);
+  --scrollbar-track: #141017;
+  --scrollbar-thumb: #3b3040;
+  --scrollbar-thumb-hover: #53455a;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
