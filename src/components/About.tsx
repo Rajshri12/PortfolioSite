@@ -13,7 +13,7 @@ export default function About() {
                     viewport={{ once: true, margin: "-100px" }}
                     className="text-4xl md:text-5xl font-bold mb-12 text-foreground"
                 >
-                    Career <span className="text-secondary">Objective</span>
+                    Engineering <span className="text-secondary">Philosophy</span>
                 </motion.h2>
                 <motion.div
                     initial={{ opacity: 0, y: 50 }}
@@ -27,12 +27,11 @@ export default function About() {
                     <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-secondary/20 rounded-full blur-[80px]" />
 
                     <p className="text-lg md:text-xl text-foreground/80 leading-relaxed max-w-4xl relative z-10">
-                        I am a backend engineering and AI system design specialist, driven by the challenge of
-                        building scalable, high-performance, and intelligent systems. I thrive in progressive
-                        organizations where I can utilize my expertise to continuously enhance technical
-                        capabilities while contributing to mission-critical workflows. From migrating legacy
-                        monoliths to architecting zero-drift LLM agents, I focus on delivering robust and
-                        future-proof software solutions.
+                        I specialize in architecting systems where **reliability meets intelligence**. 
+                        My approach is rooted in clean architecture, type safety, and a data-first mindset. 
+                        Whether it's optimizing telemetry ingestion for global security networks or 
+                        designing deterministic AI agents, I focus on building software that is 
+                        maintainable, performant, and scales alongside business growth.
                     </p>
                 </motion.div>
             </div>

@@ -69,8 +69,9 @@ export default function Hero() {
                     transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
                     className="max-w-2xl text-foreground/60 text-lg md:text-xl mb-12"
                 >
-                    Backend engineer & AI system designer focused on high-performance infrastructure,
-                    telemetry ingestion, and zero-drift LLM integrations. Based in Bengaluru.
+                    Specializing in high-concurrency backend infrastructure and production-grade AI systems. 
+                    I bridge the gap between complex data workflows and seamless user experiences with 
+                    a focus on scalability and deterministic performance.
                 </motion.p>
 
                 <motion.div

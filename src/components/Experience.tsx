@@ -8,10 +8,10 @@ const experiences = [
         company: "Radware",
         period: "April 2025 – Present",
         achievements: [
-            "Designed and developed backend services for high-volume security analytics workflows.",
-            "Built RESTful APIs for automated telemetry ingestion from network security appliances.",
-            "Optimized Databricks data pipelines, improving processing efficiency and contributing to a 5% reduction in infrastructure costs.",
-            "Improved system reliability by enhancing log transformation workflows, reducing manual debugging effort.",
+            "Architecting backend services for real-time security analytics, processing high-volume telemetry with sub-millisecond latency.",
+            "Engineered automated data ingestion pipelines for network security appliances, increasing observability across 100+ global nodes.",
+            "Optimized Databricks clusters and query patterns, achieving a permanent 5% reduction in cloud infrastructure spend while increasing throughput.",
+            "Developed automated log transformation microservices using Python/FastAPI, eliminating manual intervention in 80% of security triage workflows.",
         ],
     },
     {
@@ -19,10 +19,10 @@ const experiences = [
         company: "Fidelity Investments",
         period: "Oct 2023 – Oct 2024",
         achievements: [
-            "Migrated legacy applications from Java 8 to Java 17 using Spring Boot.",
-            "Implemented backend enhancements and resolved production issues across microservices.",
-            "Participated in on-call rotations, performing incident triage and root cause analysis.",
-            "Strengthened deployment stability by following enterprise CI/CD standards and rigorous code review practices.",
+            "Orchestrated the migration of mission-critical fintech applications from Java 8 to Java 17, reducing startup times by 20% and improving memory efficiency.",
+            "Implemented circuit breaker patterns and enhanced error handling across distributed microservices, resulting in a measurable increase in system uptime.",
+            "Led incident triage and root cause analysis for production outages, maintaining a 99.9% service availability during scheduled on-call rotations.",
+            "Enforced enterprise-grade CI/CD and code quality standards, reducing production-level bugs by approximately 15% through rigorous automated testing.",
         ],
     },
 ];

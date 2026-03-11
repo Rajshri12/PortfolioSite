@@ -6,14 +6,14 @@ import { ExternalLink, Github } from "lucide-react";
 
 const projects = [
     {
-        title: "AI-Powered Adaptive Learning Platform",
-        description: "Architected a full-stack AI tutoring system with automated grading aligned 90%+ to mentor evaluations. Developed dynamic skill knowledge graphs and optimized AI context-window management for long conversations.",
+        title: "Adaptive AI Learning Core",
+        description: "Developed a distributed AI tutoring system that mirrors mentor-level evaluations with 90%+ accuracy. I engineered a dynamic skill graph engine to track student knowledge gaps and optimized LLM context management to handle long-running pedagogical conversations without performance degradation.",
         tech: ["Next.js 16", "TypeScript", "GPT-4o", "MongoDB", "Prisma", "Tailwind CSS"],
         links: { github: "#", live: "#" }
     },
     {
-        title: "AI Frontdesk – Conversational Booking Agent",
-        description: "Engineered an AI-driven telephony booking system. Designed a deterministic state machine ensuring zero AI drift, a smart slot availability engine, and a 4-layer audit logging system for full traceability. Achieved sub-second responses.",
+        title: "Frontdesk AI – Deterministic Booking Agent",
+        description: "Built a production-grade telephony agent capable of handling complex reservation workflows. I designed a custom state machine to ensure zero AI drift during high-stakes bookings and integrated a 4-layer audit engine for regulatory traceability. Optimized for sub-second PSTN response latency.",
         tech: ["Python", "FastAPI", "OpenAI", "Twilio", "MongoDB", "ElevenLabs"],
         links: { github: "#", live: "#" }
     }
