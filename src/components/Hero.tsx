@@ -4,99 +4,115 @@ import { motion } from "framer-motion";
 import { Typewriter } from "react-simple-typewriter";
 import { ArrowDown } from "lucide-react";
 import Magnetic from "./Magnetic";
+import AnimatedTerminal from "./AnimatedTerminal";
 
 export default function Hero() {
     return (
-        <section className="relative min-h-screen flex items-center justify-center overflow-hidden w-full">
+        <section className="relative min-h-screen flex items-center justify-center overflow-hidden w-full pt-20 pb-10">
             {/* Background gradients */}
-            <div className="absolute inset-0 w-full h-full bg-background z-0">
+            <div className="absolute inset-0 w-full h-full bg-background z-0 pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px]" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-secondary/20 blur-[120px]" />
             </div>
 
-            <div className="relative z-10 w-full max-w-7xl mx-auto px-6 flex flex-col items-center text-center">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8 border border-primary/20"
+            <div className="relative z-10 w-full max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                
+                {/* Left Column: Text Content */}
+                <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8 border border-primary/20"
+                    >
+                        <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                        <span className="text-sm text-foreground/80 font-medium">Available for new opportunities</span>
+                    </motion.div>
+
+                    <motion.h1
+                        initial={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
+                        whileInView={{ opacity: 1, clipPath: "inset(0 0 0% 0)" }}
+                        transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+                        viewport={{ once: true }}
+                        className="text-5xl md:text-7xl font-bold tracking-tight mb-6"
+                    >
+                        <span className="text-foreground">Raj Shri </span>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
+                            Guru
+                        </span>
+                    </motion.h1>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+                        className="text-2xl md:text-3xl text-foreground/80 font-medium mb-8 h-12"
+                    >
+                        I build{" "}
+                        <span className="text-primary font-bold">
+                            <Typewriter
+                                words={[
+                                    "Scalable Backends",
+                                    "AI-Powered Systems",
+                                    "Intelligent Microservices",
+                                    "High-Performance APIs",
+                                ]}
+                                loop={true}
+                                cursor
+                                cursorStyle="_"
+                                typeSpeed={70}
+                                deleteSpeed={50}
+                                delaySpeed={2000}
+                            />
+                        </span>
+                    </motion.div>
+
+                    <motion.p
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+                        className="max-w-xl text-foreground/60 text-lg md:text-xl mb-12"
+                    >
+                        Specializing in high-concurrency backend infrastructure and production-grade AI systems. 
+                        I bridge the gap between complex data workflows and seamless user experiences with 
+                        a focus on scalability and deterministic performance.
+                    </motion.p>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.8, ease: "easeOut" }}
+                        className="flex flex-col sm:flex-row gap-6 items-center"
+                    >
+                        <Magnetic>
+                            <a
+                                href="mailto:rajshreeguru0@gmail.com"
+                                className="px-8 py-4 rounded-xl bg-gradient-to-r from-primary to-accent text-background font-bold text-lg hover:scale-105 transition-transform shadow-[4px_4px_0px_var(--primary)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_var(--primary)] block"
+                            >
+                                Contact Me
+                            </a>
+                        </Magnetic>
+                        <Magnetic>
+                            <a
+                                href="#experience"
+                                className="px-8 py-4 rounded-xl glass text-foreground font-semibold text-lg hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 block"
+                            >
+                                View Work <ArrowDown className="w-5 h-5" />
+                            </a>
+                        </Magnetic>
+                    </motion.div>
+                </div>
+
+                {/* Right Column: Animated Terminal */}
+                <motion.div 
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
+                    className="w-full flex justify-center lg:justify-end perspective-1000"
                 >
-                    <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-                    <span className="text-sm text-foreground/80 font-medium">Available for new opportunities</span>
+                    <AnimatedTerminal />
                 </motion.div>
 
-                <motion.h1
-                    initial={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
-                    whileInView={{ opacity: 1, clipPath: "inset(0 0 0% 0)" }}
-                    transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-                    viewport={{ once: true }}
-                    className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6"
-                >
-                    <span className="text-foreground">Raj Shri </span>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
-                        Guru
-                    </span>
-                </motion.h1>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
-                    className="text-2xl md:text-4xl text-foreground/80 font-medium mb-8 h-12"
-                >
-                    I build{" "}
-                    <span className="text-primary font-bold">
-                        <Typewriter
-                            words={[
-                                "Scalable Backends",
-                                "AI-Powered Systems",
-                                "Intelligent Microservices",
-                                "High-Performance APIs",
-                            ]}
-                            loop={true}
-                            cursor
-                            cursorStyle="_"
-                            typeSpeed={70}
-                            deleteSpeed={50}
-                            delaySpeed={2000}
-                        />
-                    </span>
-                </motion.div>
-
-                <motion.p
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
-                    className="max-w-2xl text-foreground/60 text-lg md:text-xl mb-12"
-                >
-                    Specializing in high-concurrency backend infrastructure and production-grade AI systems. 
-                    I bridge the gap between complex data workflows and seamless user experiences with 
-                    a focus on scalability and deterministic performance.
-                </motion.p>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: 0.8, ease: "easeOut" }}
-                    className="flex flex-col sm:flex-row gap-6 items-center"
-                >
-                    <Magnetic>
-                        <a
-                            href="mailto:rajshreeguru0@gmail.com"
-                            className="px-8 py-4 rounded-xl bg-gradient-to-r from-primary to-accent text-background font-bold text-lg hover:scale-105 transition-transform shadow-[0_0_20px_rgba(168,155,194,0.4)] block"
-                        >
-                            Contact Me
-                        </a>
-                    </Magnetic>
-                    <Magnetic>
-                        <a
-                            href="#experience"
-                            className="px-8 py-4 rounded-xl glass text-foreground font-semibold text-lg hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 block"
-                        >
-                            View Work <ArrowDown className="w-5 h-5" />
-                        </a>
-                    </Magnetic>
-                </motion.div>
             </div>
         </section>
     );

@@ -29,7 +29,7 @@ export default function About() {
                     <p className="text-lg md:text-xl text-foreground/80 leading-relaxed max-w-4xl relative z-10">
                         I specialize in architecting systems where **reliability meets intelligence**. 
                         My approach is rooted in clean architecture, type safety, and a data-first mindset. 
-                        Whether it's optimizing telemetry ingestion for global security networks or 
+                        Whether it&apos;s optimizing telemetry ingestion for global security networks or 
                         designing deterministic AI agents, I focus on building software that is 
                         maintainable, performant, and scales alongside business growth.
                     </p>

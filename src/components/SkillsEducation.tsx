@@ -1,11 +1,29 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Server, Database, Code2, Cpu, GraduationCap, Award, MousePointer2 } from "lucide-react";
-import { useState, useRef } from "react";
+import { Server, Database, Code2, GraduationCap, Award, MousePointer2, Layers } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function SkillsEducation() {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            const cards = document.querySelectorAll('.glass') as NodeListOf<HTMLElement>;
+            cards.forEach(card => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouseX', `${x}px`);
+                card.style.setProperty('--mouseY', `${y}px`);
+            });
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+        };
+    }, []);
 
     const bentoItems = [
         {
@@ -43,7 +61,14 @@ export default function SkillsEducation() {
             type: "skills",
             title: "Databases & Tools",
             icon: <Database className="w-6 h-6 text-primary" />,
-            content: ["MongoDB", "PostgreSQL", "TailwindCSS"],
+            content: ["MongoDB", "PostgreSQL"],
+            className: "md:col-span-1 md:row-span-1",
+        },
+        {
+            type: "skills",
+            title: "Portfolio Stack",
+            icon: <Layers className="w-6 h-6 text-accent" />,
+            content: ["Next.js", "Tailwind CSS", "Framer Motion"],
             className: "md:col-span-1 md:row-span-1",
         },
     ];
@@ -127,21 +152,6 @@ export default function SkillsEducation() {
                     ))}
                 </div>
             </div>
-
-            {/* Global Mouse Follow Logic Hook */}
-            <script dangerouslySetInnerHTML={{
-                __html: `
-        document.addEventListener('mousemove', (e) => {
-          const cards = document.querySelectorAll('.glass');
-          cards.forEach(card => {
-            const rect = card.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            card.style.setProperty('--mouseX', \`\${x}px\`);
-            card.style.setProperty('--mouseY', \`\${y}px\`);
-          });
-        });
-      `}} />
         </section>
     );
 }
