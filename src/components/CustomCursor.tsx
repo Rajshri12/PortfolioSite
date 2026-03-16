@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, useSpring } from "framer-motion";
+import { motion, useSpring, useMotionValue } from "framer-motion";
 
 export default function CustomCursor() {
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+    const mouseX = useMotionValue(0);
+    const mouseY = useMotionValue(0);
     const [isHovering, setIsHovering] = useState(false);
 
     useEffect(() => {
         const updateMousePosition = (e: MouseEvent) => {
-            setMousePosition({ x: e.clientX, y: e.clientY });
+            mouseX.set(e.clientX);
+            mouseY.set(e.clientY);
         };
 
         const handleMouseOver = (e: MouseEvent) => {
@@ -26,8 +28,8 @@ export default function CustomCursor() {
             }
         };
 
-        window.addEventListener("mousemove", updateMousePosition);
-        window.addEventListener("mouseover", handleMouseOver);
+        window.addEventListener("mousemove", updateMousePosition, { passive: true });
+        window.addEventListener("mouseover", handleMouseOver, { passive: true });
 
         return () => {
             window.removeEventListener("mousemove", updateMousePosition);
@@ -36,8 +38,8 @@ export default function CustomCursor() {
     }, []);
 
     const springConfig = { damping: 25, stiffness: 200, mass: 0.5 };
-    const cursorX = useSpring(mousePosition.x, springConfig);
-    const cursorY = useSpring(mousePosition.y, springConfig);
+    const cursorX = useSpring(mouseX, springConfig);
+    const cursorY = useSpring(mouseY, springConfig);
 
     return (
         <>
@@ -58,8 +60,8 @@ export default function CustomCursor() {
             <motion.div
                 className="fixed top-0 left-0 w-2 h-2 rounded-full bg-secondary pointer-events-none z-[10000] hidden md:block"
                 style={{
-                    x: mousePosition.x,
-                    y: mousePosition.y,
+                    x: mouseX,
+                    y: mouseY,
                     translateX: "-50%",
                     translateY: "-50%",
                 }}

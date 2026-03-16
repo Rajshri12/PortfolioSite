@@ -1,10 +1,15 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import { useEffect, useState } from "react";
 
 export default function MeshBackground() {
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const mouseX = useMotionValue(0);
+    const mouseY = useMotionValue(0);
+
+    const smoothMouseX = useSpring(mouseX, { damping: 50, stiffness: 400 });
+    const smoothMouseY = useSpring(mouseY, { damping: 50, stiffness: 400 });
+
     const { scrollYProgress } = useScroll();
 
     // Parallax and rotation effects based on scroll
@@ -13,14 +18,12 @@ export default function MeshBackground() {
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
-            setMousePos({
-                x: (e.clientX / window.innerWidth - 0.5) * 20,
-                y: (e.clientY / window.innerHeight - 0.5) * 20,
-            });
+            mouseX.set((e.clientX / window.innerWidth - 0.5) * 20);
+            mouseY.set((e.clientY / window.innerHeight - 0.5) * 20);
         };
-        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mousemove", handleMouseMove, { passive: true });
         return () => window.removeEventListener("mousemove", handleMouseMove);
-    }, []);
+    }, [mouseX, mouseY]);
 
     return (
         <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden bg-background">
@@ -28,10 +31,10 @@ export default function MeshBackground() {
                 style={{
                     rotate,
                     scale,
-                    x: mousePos.x,
-                    y: mousePos.y,
+                    x: smoothMouseX,
+                    y: smoothMouseY,
                 }}
-                className="absolute inset-[-10%] opacity-40 dark:opacity-20 transition-transform duration-1000 ease-out"
+                className="absolute inset-[-10%] opacity-40 dark:opacity-20 transition-transform duration-1000 ease-out will-change-transform"
             >
                 {/* Large Lavender Blob */}
                 <motion.div
@@ -45,7 +48,7 @@ export default function MeshBackground() {
                         repeat: Infinity,
                         ease: "linear",
                     }}
-                    className="absolute top-[10%] left-[20%] w-[50%] h-[50%] rounded-full bg-primary/40 blur-[120px]"
+                    className="absolute top-[10%] left-[20%] w-[50%] h-[50%] rounded-full bg-primary/40 blur-[120px] will-change-transform"
                 />
 
                 {/* Champagne Gold Blob */}
@@ -60,7 +63,7 @@ export default function MeshBackground() {
                         repeat: Infinity,
                         ease: "linear",
                     }}
-                    className="absolute bottom-[20%] right-[10%] w-[45%] h-[45%] rounded-full bg-accent/30 blur-[140px]"
+                    className="absolute bottom-[20%] right-[10%] w-[45%] h-[45%] rounded-full bg-accent/30 blur-[140px] will-change-transform"
                 />
 
                 {/* Pale Lilac/Secondary Blob */}
@@ -75,7 +78,7 @@ export default function MeshBackground() {
                         repeat: Infinity,
                         ease: "linear",
                     }}
-                    className="absolute top-[40%] right-[20%] w-[40%] h-[40%] rounded-full bg-secondary/30 blur-[100px]"
+                    className="absolute top-[40%] right-[20%] w-[40%] h-[40%] rounded-full bg-secondary/30 blur-[100px] will-change-transform"
                 />
             </motion.div>
 
