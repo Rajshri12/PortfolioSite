@@ -2,18 +2,18 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Job from '@/models/Job';
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const db = await connectToDatabase();
     const body = await request.json();
     
     if (!db) {
-      return NextResponse.json({ success: true, data: { ...body, _id: params.id, mockUpdated: true } });
+      return NextResponse.json({ success: true, data: { ...body, _id: id, mockUpdated: true } });
     }
     
-    const url = new URL(request.url);
-    const idParts = url.pathname.split('/');
-    const id = idParts[idParts.length - 1];
+    // ID is now from awaited params
+
     
     const updatedJob = await Job.findByIdAndUpdate(
       id,
@@ -31,7 +31,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const db = await connectToDatabase();
     
@@ -39,9 +40,8 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       return NextResponse.json({ success: true, data: { mockDeleted: true } });
     }
     
-    const url = new URL(request.url);
-    const idParts = url.pathname.split('/');
-    const id = idParts[idParts.length - 1];
+    // ID is now from awaited params
+
     
     const deletedJob = await Job.findByIdAndDelete(id);
     
