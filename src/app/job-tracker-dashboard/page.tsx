@@ -45,24 +45,7 @@ import {
   subDays,
   startOfToday
 } from 'date-fns';
-import { useTasks } from '@/context/TaskContext';
-
-interface Task {
-  _id: string;
-  id: string;
-  text: string;
-  category: 'learning' | 'job-search';
-  type: 'daily' | 'custom';
-  url?: string;
-  date?: string; 
-  recurrence: {
-    type: 'none' | 'daily' | 'weekly';
-    days: number[];
-  };
-  completedDates: string[];
-  excludedDates: string[];
-  endDate?: string;
-}
+import { useTasks, Task } from '@/context/TaskContext';
 
 export default function DailyTracker() {
   const { tasks, setTasks, refreshTasks: fetchTasks } = useTasks();

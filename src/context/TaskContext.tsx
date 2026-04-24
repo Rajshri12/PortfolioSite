@@ -3,11 +3,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 
-interface Task {
+export interface Task {
+    _id: string;
     id: string;
     text: string;
+    url?: string;
+    category: 'learning' | 'job-search';
     completedDates: string[];
     type: 'custom' | 'daily';
+    date: string;
     recurrence: {
         type: 'none' | 'daily' | 'weekly';
         days: number[];
