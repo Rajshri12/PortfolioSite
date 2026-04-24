@@ -454,7 +454,7 @@ export default function DailyTracker() {
                         >
                             Today
                         </button>
-                        <button onClick={() => addDays(selectedDate, 7)} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400" onClick={() => setSelectedDate(addDays(selectedDate, 7))}><ChevronRight className="w-5 h-5" /></button>
+                        <button onClick={() => setSelectedDate(addDays(selectedDate, 7))} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400"><ChevronRight className="w-5 h-5" /></button>
                     </div>
                 </div>
                 <div className="flex justify-between px-2 gap-3">
