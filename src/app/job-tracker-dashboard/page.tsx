@@ -87,7 +87,6 @@ export default function DailyTracker() {
     fetchTasks();
     fetchJobStats();
     fetchAiInsight();
-    fetchAiSuggestions();
     
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Good Morning');
