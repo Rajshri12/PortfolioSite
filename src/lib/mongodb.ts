@@ -15,25 +15,15 @@ async function connectToDatabase() {
   }
 
   if (!cached.promise) {
-    // Manually construct the standard connection string to bypass SRV lookup issues in Node 25
-    let connectionUri = MONGODB_URI;
-    if (MONGODB_URI.includes('cluster0.zux2d19.mongodb.net')) {
-      const auth = MONGODB_URI.split('//')[1].split('@')[0];
-      const nodes = [
-        'ac-dojjrxj-shard-00-00.zux2d19.mongodb.net:27017',
-        'ac-dojjrxj-shard-00-01.zux2d19.mongodb.net:27017',
-        'ac-dojjrxj-shard-00-02.zux2d19.mongodb.net:27017'
-      ];
-      connectionUri = `mongodb://${auth}@${nodes.join(',')}/daily-tracker?ssl=true&replicaSet=atlas-10blig-shard-0&authSource=admin`;
-    }
+    const connectionUri = MONGODB_URI;
 
     const opts = {
       bufferCommands: true,
     };
 
-    console.log('Connecting to MongoDB via direct nodes...');
+    console.log('Connecting to MongoDB...');
     cached.promise = mongoose.connect(connectionUri, opts).then((mongoose) => {
-      console.log('✅ MongoDB Connected Successfully (Direct)');
+      console.log('✅ MongoDB Connected Successfully');
       return mongoose;
     });
   }
