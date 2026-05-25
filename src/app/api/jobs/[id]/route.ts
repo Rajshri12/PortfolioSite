@@ -6,25 +6,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   try {
     const db = await connectToDatabase();
-    const body = await request.json();
-    
-    if (!db) {
-      return NextResponse.json({ success: true, data: { ...body, _id: id, mockUpdated: true } });
-    }
-    
-    // ID is now from awaited params
+    if (!db) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 500 });
 
-    
-    const updatedJob = await Job.findByIdAndUpdate(
-      id,
-      { $set: body },
-      { new: true, runValidators: true }
-    );
-    
-    if (!updatedJob) {
-      return NextResponse.json({ success: false, error: 'Job not found' }, { status: 404 });
-    }
-    
+    const body = await request.json();
+    const updatedJob = await Job.findByIdAndUpdate(id, { $set: body }, { new: true, runValidators: true });
+
+    if (!updatedJob) return NextResponse.json({ success: false, error: 'Job not found' }, { status: 404 });
     return NextResponse.json({ success: true, data: updatedJob });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
@@ -35,20 +22,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const { id } = await params;
   try {
     const db = await connectToDatabase();
-    
-    if (!db) {
-      return NextResponse.json({ success: true, data: { mockDeleted: true } });
-    }
-    
-    // ID is now from awaited params
+    if (!db) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 500 });
 
-    
     const deletedJob = await Job.findByIdAndDelete(id);
-    
-    if (!deletedJob) {
-      return NextResponse.json({ success: false, error: 'Job not found' }, { status: 404 });
-    }
-    
+    if (!deletedJob) return NextResponse.json({ success: false, error: 'Job not found' }, { status: 404 });
     return NextResponse.json({ success: true, data: {} });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });

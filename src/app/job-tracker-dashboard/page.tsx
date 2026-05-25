@@ -218,7 +218,7 @@ export default function DailyTracker() {
   const deleteTask = async (id: string, option: 'one' | 'following' | 'all' = 'all') => {
     // Close modal immediately for better UX
     setDeletingTask(null);
-    
+
     const task = tasks.find(t => t.id === id);
     if (!task) return;
 
@@ -227,7 +227,9 @@ export default function DailyTracker() {
     if (option === 'all') {
       setTasks(prev => prev.filter(t => t.id !== id));
       try {
-        await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!data.success) { console.error('Delete failed:', data.error); fetchTasks(); }
       } catch (err) {
         console.error('Network error during deletion:', err);
         fetchTasks();
@@ -236,11 +238,13 @@ export default function DailyTracker() {
       const newExcluded = [...(task.excludedDates || []), dStr];
       setTasks(prev => prev.map(t => t.id === id ? { ...t, excludedDates: newExcluded } : t));
       try {
-        await fetch(`/api/tasks/${id}`, {
+        const res = await fetch(`/api/tasks/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ excludedDates: newExcluded })
         });
+        const data = await res.json();
+        if (!data.success) { console.error('Exclude failed:', data.error); fetchTasks(); }
       } catch (err) {
         console.error('Failed to exclude date:', err);
         fetchTasks();
@@ -249,11 +253,13 @@ export default function DailyTracker() {
       const yesterday = format(subDays(selectedDate, 1), 'yyyy-MM-dd');
       setTasks(prev => prev.map(t => t.id === id ? { ...t, endDate: yesterday } : t));
       try {
-        await fetch(`/api/tasks/${id}`, {
+        const res = await fetch(`/api/tasks/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endDate: yesterday })
         });
+        const data = await res.json();
+        if (!data.success) { console.error('End date failed:', data.error); fetchTasks(); }
       } catch (err) {
         console.error('Failed to set end date:', err);
         fetchTasks();
