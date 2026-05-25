@@ -63,99 +63,6 @@ const REFERRAL_STATUS_META: Record<ReferralStatus, { label: string; color: strin
   declined: { label: "Declined",  color: "text-rose-700 bg-rose-100" },
 };
 
-const MOCK_JOBS: Job[] = [
-  {
-    _id: "1", title: "AI Engineer", company: "Anthropic", url: "https://anthropic.com/careers",
-    source: "manual", status: "interview", priority: "dream",
-    location: "San Francisco, CA", salary: "$180k–$240k",
-    tags: ["RAG", "LLMs", "Python"], appliedAt: "2026-05-01",
-    followUpDate: "2026-05-20", notes: "Strong match. Had a great first call with the team.",
-    stageHistory: [
-      { stage: "new", date: "2026-04-28" },
-      { stage: "applied", date: "2026-05-01" },
-      { stage: "phone_screen", date: "2026-05-10" },
-      { stage: "interview", date: "2026-05-17" },
-    ],
-    recruiter: { name: "Sarah Chen", email: "s.chen@anthropic.com", title: "Senior Recruiter", linkedIn: "https://linkedin.com" },
-    coldEmail: {
-      subject: "AI Engineer Role — FastAPI + RAG background",
-      body: "Hi Sarah,\n\nI came across the AI Engineer opening at Anthropic and I'm genuinely excited about the mission.\n\nI'm Rajshri, a backend engineer transitioning to AI with hands-on experience in FastAPI, LangChain, and production RAG pipelines. I recently shipped a retrieval-augmented chatbot that cut support ticket volume by 30%.\n\nWould you be open to a 15-minute call to see if there's a mutual fit?\n\nBest,\nRajshri",
-      generatedAt: "2026-04-30", sent: true, sentAt: "2026-05-01",
-    },
-    createdAt: "2026-04-28",
-  },
-  {
-    _id: "2", title: "ML Platform Engineer", company: "Scale AI", url: "https://scale.com/careers",
-    source: "referral", status: "phone_screen", priority: "high",
-    location: "Remote", salary: "$160k–$200k",
-    tags: ["MLOps", "Python", "Kubernetes"], appliedAt: "2026-05-05",
-    followUpDate: "2026-05-28",
-    stageHistory: [
-      { stage: "new", date: "2026-05-02" },
-      { stage: "applied", date: "2026-05-05", notes: "Applied via referral from Kavya" },
-      { stage: "phone_screen", date: "2026-05-14" },
-    ],
-    referral: {
-      referrerName: "Kavya Reddy", referrerLinkedIn: "https://linkedin.com",
-      referrerEmail: "kavya@example.com", relationship: "College friend — she works on the data team",
-      status: "received", askedAt: "2026-05-03", notes: "Kavya submitted internal referral. Follow up after phone screen.",
-    },
-    createdAt: "2026-05-02",
-  },
-  {
-    _id: "3", title: "Backend Engineer (AI Infra)", company: "OpenAI", url: "https://openai.com/careers",
-    source: "manual", status: "oa", priority: "dream",
-    location: "San Francisco, CA", salary: "$200k+",
-    tags: ["Python", "Distributed Systems", "AI"],
-    stageHistory: [
-      { stage: "new", date: "2026-05-10" },
-      { stage: "applied", date: "2026-05-12" },
-      { stage: "oa", date: "2026-05-18", notes: "OA sent — 90 min LeetCode + system design" },
-    ],
-    followUpDate: "2026-05-26",
-    recruiter: { name: "Michael Torres", title: "Technical Recruiter", email: "mta@openai.com" },
-    createdAt: "2026-05-10",
-  },
-  {
-    _id: "4", title: "Senior Python Developer", company: "Stripe", url: "https://stripe.com/jobs",
-    source: "cold_email", status: "applied", priority: "high",
-    location: "Remote / NYC", salary: "$170k–$210k",
-    tags: ["Python", "Payments", "FastAPI"],
-    stageHistory: [
-      { stage: "new", date: "2026-05-08" },
-      { stage: "applied", date: "2026-05-12" },
-    ],
-    recruiter: { name: "Aisha Johnson", email: "aisha@stripe.com", title: "Recruiter", linkedIn: "https://linkedin.com" },
-    coldEmail: {
-      subject: "Senior Python Role — Fintech + FastAPI background",
-      body: "Hi Aisha,\n\nI saw the Senior Python Developer role at Stripe and wanted to reach out directly.\n\nI have 3 years of FastAPI production experience and have worked on payment-adjacent APIs. I'm drawn to Stripe's obsession with developer experience.\n\nWould you have 15 minutes to chat?\n\nBest,\nRajshri",
-      generatedAt: "2026-05-08", sent: true, sentAt: "2026-05-09",
-    },
-    createdAt: "2026-05-08",
-  },
-  {
-    _id: "5", title: "AI Research Engineer", company: "Cohere", url: "https://cohere.com/careers",
-    source: "manual", status: "rejected", priority: "high",
-    rejectionStage: "phone_screen",
-    tags: ["NLP", "PyTorch", "Research"],
-    stageHistory: [
-      { stage: "new", date: "2026-04-20" },
-      { stage: "applied", date: "2026-04-22" },
-      { stage: "phone_screen", date: "2026-04-29" },
-      { stage: "rejected", date: "2026-05-05", notes: "Not moving forward — looking for more research publication experience" },
-    ],
-    createdAt: "2026-04-20",
-  },
-  {
-    _id: "6", title: "LLM Engineer", company: "Mistral AI", url: "https://mistral.ai/jobs",
-    source: "manual", status: "new", priority: "medium",
-    location: "Paris (Remote OK)", salary: "€90k–€130k",
-    tags: ["LLMs", "Fine-tuning", "Python"],
-    stageHistory: [{ stage: "new", date: "2026-05-22" }],
-    createdAt: "2026-05-22",
-  },
-];
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatusDot({ status }: { status?: JobStatus }) {
@@ -938,33 +845,44 @@ function StatsBar({ jobs }: { jobs: Job[] }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function JobOrbitPage() {
-  const [jobs, setJobs] = useState<Job[]>(MOCK_JOBS);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [activeTab, setActiveTab] = useState<"pipeline" | "referrals" | "outreach">("pipeline");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/jobs");
-        const data = await res.json();
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) setJobs(data.data);
-      } catch {}
-      finally { setLoading(false); }
-    })();
-  }, []);
-
-  const updateJob = (id: string, patch: Partial<Job>) => {
-    setJobs(prev => prev.map(j => j._id === id ? { ...j, ...patch } : j));
-    if (selectedJob?._id === id) setSelectedJob(prev => prev ? { ...prev, ...patch } : prev);
-    fetch(`/api/jobs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).catch(() => {});
+  const fetchJobs = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/jobs");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) setJobs(data.data);
+    } catch {}
+    finally { setLoading(false); }
   };
 
-  const deleteJob = (id: string) => {
+  useEffect(() => { fetchJobs(); }, []);
+
+  const updateJob = async (id: string, patch: Partial<Job>) => {
+    // Optimistic update
+    setJobs(prev => prev.map(j => j._id === id ? { ...j, ...patch } : j));
+    if (selectedJob?._id === id) setSelectedJob(prev => prev ? { ...prev, ...patch } : prev);
+    try {
+      const res = await fetch(`/api/jobs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      const data = await res.json();
+      if (!data.success) fetchJobs(); // revert on failure
+    } catch { fetchJobs(); }
+  };
+
+  const deleteJob = async (id: string) => {
+    // Optimistic update
     setJobs(prev => prev.filter(j => j._id !== id));
-    fetch(`/api/jobs/${id}`, { method: "DELETE" }).catch(() => {});
+    if (selectedJob?._id === id) setSelectedJob(null);
+    try {
+      const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!data.success) fetchJobs(); // revert on failure
+    } catch { fetchJobs(); }
   };
 
   const TABS = [
