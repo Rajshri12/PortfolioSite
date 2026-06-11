@@ -7,9 +7,16 @@ import {
   ChevronRight, Mail, Users, GitBranch, ArrowRight, AlertCircle,
   CheckCircle2, Clock, Trash2, Send, Loader2, Sparkles, Link,
   MapPin, DollarSign, Tag, MessageSquare, Phone, Star, UserCheck,
-  TrendingUp, BarChart2, Zap, Copy, Check,
+  TrendingUp, BarChart2, Zap, Copy, Check, FileText, ShieldCheck,
+  ShieldAlert, ShieldX, Bot, CalendarClock,
 } from "lucide-react";
 import { format, isPast, formatDistanceToNow } from "date-fns";
+
+function fmtDate(val: string | undefined | null, fmt: string, fallback = ""): string {
+  if (!val) return fallback;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? fallback : format(d, fmt);
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,12 +34,22 @@ interface ColdEmail { subject: string; body: string; generatedAt: string; sent: 
 
 interface Job {
   _id: string; title: string; company: string; url: string;
+  applyUrl?: string;
   source: "scraper" | "manual" | "referral" | "cold_email";
   status: JobStatus; priority: Priority;
   reasoning?: string; notes?: string; location?: string; salary?: string;
   tags: string[]; appliedAt?: string; followUpDate?: string;
   rejectionStage?: JobStatus; stageHistory: StageEvent[];
   referral?: Referral; recruiter?: Recruiter; coldEmail?: ColdEmail;
+  // ApplyPilot fields
+  score?: number;
+  scoreReasoning?: string;
+  legitimacy?: number;
+  resumeUrl?: string;
+  coverLetterUrl?: string;
+  filesExpireAt?: string;
+  notifyType?: string;
+  receivedAt?: string;
   createdAt: string;
 }
 
@@ -94,11 +111,44 @@ function PriorityBadge({ priority }: { priority?: Priority }) {
 function FollowUpBadge({ date }: { date?: string }) {
   if (!date) return null;
   const d = new Date(date);
+  if (isNaN(d.getTime())) return null;
   const overdue = isPast(d);
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border ${overdue ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
       {overdue ? <AlertCircle className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
       {overdue ? "Follow-up overdue" : `Follow up ${formatDistanceToNow(d, { addSuffix: true })}`}
+    </span>
+  );
+}
+
+function ScoreBadge({ score }: { score?: number }) {
+  if (score == null) return null;
+  const color =
+    score >= 8 ? "bg-emerald-100 text-emerald-700 border-emerald-300" :
+    score >= 6 ? "bg-amber-100 text-amber-700 border-amber-300" :
+                 "bg-rose-100 text-rose-600 border-rose-300";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border ${color}`}>
+      <Bot className="w-2.5 h-2.5" /> {score}/10
+    </span>
+  );
+}
+
+function LegitimacyBadge({ legitimacy }: { legitimacy?: number }) {
+  if (legitimacy == null) return null;
+  if (legitimacy === 1) return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <ShieldCheck className="w-2.5 h-2.5" /> Legit
+    </span>
+  );
+  if (legitimacy === 2) return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
+      <ShieldAlert className="w-2.5 h-2.5" /> Caution
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-600 border border-rose-200">
+      <ShieldX className="w-2.5 h-2.5" /> Ghost Job
     </span>
   );
 }
@@ -134,11 +184,18 @@ function PipelineCard({ job, onClick }: { job: Job; onClick: () => void }) {
           ))}
         </div>
       )}
+      {(job.score != null || job.legitimacy != null) && (
+        <div className="flex gap-1 flex-wrap mb-2">
+          <ScoreBadge score={job.score} />
+          <LegitimacyBadge legitimacy={job.legitimacy} />
+        </div>
+      )}
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
         <div className="flex gap-1 items-center">
           {job.referral && <span title="Has referral" className="text-emerald-500"><Users className="w-3 h-3" /></span>}
           {job.coldEmail && <span title="Cold email sent" className="text-blue-400"><Mail className="w-3 h-3" /></span>}
           {job.recruiter && <span title="Recruiter tracked" className="text-violet-400"><UserCheck className="w-3 h-3" /></span>}
+          {job.resumeUrl && <span title="Resume ready" className="text-indigo-400"><FileText className="w-3 h-3" /></span>}
         </div>
         {job.followUpDate && <FollowUpBadge date={job.followUpDate} />}
       </div>
@@ -247,7 +304,7 @@ function ReferralsTab({ jobs, onSelect, onUpdate }: { jobs: Job[]; onSelect: (j:
               <div key={j._id} onClick={() => onSelect(j)} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-rose-100 cursor-pointer hover:border-rose-300 transition-all">
                 <div>
                   <p className="text-sm font-bold text-slate-800">{j.title} <span className="text-slate-400 font-medium">@ {j.company}</span></p>
-                  <p className="text-xs text-rose-500 font-semibold">Was due {format(new Date(j.followUpDate!), "MMM d")}</p>
+                  <p className="text-xs text-rose-500 font-semibold">Was due {fmtDate(j.followUpDate, "MMM d")}</p>
                 </div>
                 <StatusBadge status={j.status} />
               </div>
@@ -340,7 +397,7 @@ function EmailCard({ job, onCopy, onMarkSent }: { job: Job; onCopy: () => void; 
         <p className="text-xs font-black text-slate-500 uppercase tracking-wider">Body</p>
         <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line font-medium">{email.body}</p>
       </div>
-      <p className="text-[10px] text-slate-400 mt-3 font-medium">Generated {format(new Date(email.generatedAt), "MMM d, yyyy")}</p>
+      <p className="text-[10px] text-slate-400 mt-3 font-medium">{email.generatedAt ? `Generated ${fmtDate(email.generatedAt, "MMM d, yyyy")}` : ""}</p>
     </div>
   );
 }
@@ -558,7 +615,7 @@ function ReferralForm({ initial, onSave, onCancel }: { initial: Referral; onSave
       </div>
       <div className="flex gap-2 pt-1">
         <button onClick={onCancel} className="flex-1 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-xs font-bold transition-colors">Cancel</button>
-        <button onClick={() => { if (r.referrerName.trim()) onSave(r); }} disabled={!r.referrerName.trim()} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-colors disabled:opacity-50">Save Referral</button>
+        <button onClick={() => { if (r.referrerName?.trim()) onSave(r); }} disabled={!r.referrerName?.trim()} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-colors disabled:opacity-50">Save Referral</button>
       </div>
     </div>
   );
@@ -598,6 +655,11 @@ function JobDrawer({ job, onClose, onUpdate, onDelete }: { job: Job; onClose: ()
             <a href={job.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-black hover:bg-blue-700 transition-colors shadow shadow-blue-500/20">
               <ExternalLink className="w-3.5 h-3.5" /> View Posting
             </a>
+            {job.applyUrl && (
+              <a href={job.applyUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-black hover:bg-emerald-700 transition-colors shadow shadow-emerald-500/20">
+                <Send className="w-3.5 h-3.5" /> Apply Now
+              </a>
+            )}
             {nextStage && (
               <button onClick={() => onUpdate(job._id, { status: nextStage })} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-sm font-black hover:bg-blue-100 transition-colors border border-blue-200">
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -610,6 +672,52 @@ function JobDrawer({ job, onClose, onUpdate, onDelete }: { job: Job; onClose: ()
           </div>
 
           {job.followUpDate && <div className="mb-5"><FollowUpBadge date={job.followUpDate} /></div>}
+
+          {/* ApplyPilot Section */}
+          {(job.score != null || job.resumeUrl || job.coverLetterUrl || job.legitimacy != null) && (
+            <div className="glass-panel rounded-2xl p-5 mb-5 border-l-4 border-indigo-400">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5" /> ApplyPilot
+              </p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {job.score != null && <ScoreBadge score={job.score} />}
+                {job.legitimacy != null && <LegitimacyBadge legitimacy={job.legitimacy} />}
+                {job.notifyType && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    {job.notifyType}
+                  </span>
+                )}
+              </div>
+              {job.scoreReasoning && (
+                <p className="text-xs text-slate-600 font-medium bg-slate-50 rounded-xl px-3 py-2 border border-slate-100 mb-4 leading-relaxed">
+                  {job.scoreReasoning}
+                </p>
+              )}
+              {(job.resumeUrl || job.coverLetterUrl) && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Generated Files</p>
+                  {job.filesExpireAt && (
+                    <p className={`text-[10px] font-semibold flex items-center gap-1 ${new Date(job.filesExpireAt) < new Date() ? "text-rose-500" : "text-slate-400"}`}>
+                      <CalendarClock className="w-3 h-3" />
+                      {job.filesExpireAt && (new Date(job.filesExpireAt) < new Date() ? "Links expired" : `Links expire ${fmtDate(job.filesExpireAt, "MMM d, yyyy")}`)}
+                    </p>
+                  )}
+                  <div className="flex gap-2 flex-wrap">
+                    {job.resumeUrl && (
+                      <a href={job.resumeUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-2 rounded-xl border border-indigo-200 transition-colors">
+                        <FileText className="w-3.5 h-3.5" /> Resume PDF
+                      </a>
+                    )}
+                    {job.coverLetterUrl && (
+                      <a href={job.coverLetterUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-black bg-violet-50 text-violet-700 hover:bg-violet-100 px-3 py-2 rounded-xl border border-violet-200 transition-colors">
+                        <FileText className="w-3.5 h-3.5" /> Cover Letter PDF
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Stage Timeline */}
           <div className="glass-panel rounded-2xl p-5 mb-5">
@@ -625,7 +733,7 @@ function JobDrawer({ job, onClose, onUpdate, onDelete }: { job: Job; onClose: ()
                     </div>
                     <div className="pb-2">
                       <p className="text-sm font-bold text-slate-700">{s?.label ?? ev.stage}</p>
-                      <p className="text-xs text-slate-400 font-medium">{format(new Date(ev.date), "MMM d, yyyy")}</p>
+                      <p className="text-xs text-slate-400 font-medium">{fmtDate(ev.date, "MMM d, yyyy")}</p>
                       {ev.notes && <p className="text-xs text-slate-500 italic mt-0.5">"{ev.notes}"</p>}
                     </div>
                   </div>
@@ -678,7 +786,7 @@ function JobDrawer({ job, onClose, onUpdate, onDelete }: { job: Job; onClose: ()
               </button>
             ) : editingReferral ? (
               <ReferralForm
-                initial={job.referral ?? EMPTY_REFERRAL}
+                initial={job.referral ? { ...EMPTY_REFERRAL, ...job.referral } : EMPTY_REFERRAL}
                 onSave={(r) => {
                   onUpdate(job._id, { referral: r, source: "referral" });
                   setEditingReferral(false);
@@ -712,7 +820,7 @@ function JobDrawer({ job, onClose, onUpdate, onDelete }: { job: Job; onClose: ()
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Cold Email</p>
                 {job.coldEmail.sent
-                  ? <span className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Sent {job.coldEmail.sentAt ? format(new Date(job.coldEmail.sentAt), "MMM d") : ""}</span>
+                  ? <span className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Sent {fmtDate(job.coldEmail.sentAt, "MMM d")}</span>
                   : <span className="text-[10px] font-black bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Not sent</span>
                 }
               </div>
@@ -759,22 +867,28 @@ function JobDrawer({ job, onClose, onUpdate, onDelete }: { job: Job; onClose: ()
 
 // ─── Add Job Modal ────────────────────────────────────────────────────────────
 
-function AddJobModal({ onClose, onAdd }: { onClose: () => void; onAdd: (job: Partial<Job>) => void }) {
+function AddJobModal({ onClose, onAdd }: { onClose: () => void; onAdd: (job: Job) => void }) {
   const [form, setForm] = useState({ title: "", company: "", url: "", location: "", salary: "", priority: "medium" as Priority, tags: "", notes: "" });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const inp = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 font-medium transition-all";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     try {
       const body = { ...form, tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [], source: "manual" as const };
       const res = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
-      if (data.success) { onAdd(data.data); onClose(); }
+      if (data.success && data.data?.[0]) {
+        onAdd(data.data[0]);
+        onClose();
+      } else {
+        setError(data.error ?? data.message ?? "Failed to save. Please try again.");
+      }
     } catch {
-      onAdd({ ...form, _id: Date.now().toString(), tags: [], source: "manual", status: "new", stageHistory: [{ stage: "new", date: new Date().toISOString() }], createdAt: new Date().toISOString() } as Job);
-      onClose();
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -800,6 +914,11 @@ function AddJobModal({ onClose, onAdd }: { onClose: () => void; onAdd: (job: Par
             <div className="col-span-2"><label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Tags (comma-separated)</label><input className={inp} value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="Python, RAG, FastAPI" /></div>
             <div className="col-span-2"><label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Notes</label><textarea className={`${inp} min-h-[70px] resize-none`} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           </div>
+          {error && (
+            <p className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {error}
+            </p>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-3 text-slate-600 hover:bg-slate-100 rounded-xl font-bold transition-colors">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-colors shadow-lg shadow-blue-500/30 disabled:opacity-50">
@@ -851,12 +970,21 @@ export default function JobOrbitPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const normaliseJob = (j: Job): Job => ({
+    ...j,
+    tags: Array.isArray(j.tags) ? j.tags : [],
+    stageHistory: Array.isArray(j.stageHistory) ? j.stageHistory : [],
+    status: j.status ?? "new",
+    priority: j.priority ?? "medium",
+    source: j.source ?? "manual",
+  });
+
   const fetchJobs = async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/jobs");
       const data = await res.json();
-      if (data.success && Array.isArray(data.data)) setJobs(data.data);
+      if (data.success && Array.isArray(data.data)) setJobs(data.data.map(normaliseJob));
     } catch {}
     finally { setLoading(false); }
   };
@@ -870,7 +998,14 @@ export default function JobOrbitPage() {
     try {
       const res = await fetch(`/api/jobs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
       const data = await res.json();
-      if (!data.success) fetchJobs(); // revert on failure
+      if (data.success && data.data) {
+        const fresh = normaliseJob(data.data);
+        // Sync with authoritative DB state (stageHistory, appliedAt, etc.)
+        setJobs(prev => prev.map(j => j._id === id ? fresh : j));
+        if (selectedJob?._id === id) setSelectedJob(fresh);
+      } else {
+        fetchJobs();
+      }
     } catch { fetchJobs(); }
   };
 
@@ -956,7 +1091,7 @@ export default function JobOrbitPage() {
         {addOpen && (
           <AddJobModal
             onClose={() => setAddOpen(false)}
-            onAdd={(newJob) => { if (newJob._id) setJobs(prev => [newJob as Job, ...prev]); }}
+            onAdd={(newJob) => setJobs(prev => [normaliseJob(newJob), ...prev])}
           />
         )}
       </AnimatePresence>

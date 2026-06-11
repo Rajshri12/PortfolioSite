@@ -321,9 +321,11 @@ export default function JournalPage() {
 
   async function deleteEntry(id: string) {
     if (!confirm("Delete this entry?")) return;
-    await apiFetch(`/api/journal/${id}`, { method: "DELETE" });
-    setEntries(prev => prev.filter(e => e.id !== id));
-    setTotal(t => t - 1);
+    const res = await apiFetch(`/api/journal/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setEntries(prev => prev.filter(e => e.id !== id));
+      setTotal(t => t - 1);
+    }
   }
 
   async function editEntry(id: string, encoded: string) {

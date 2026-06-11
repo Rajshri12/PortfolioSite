@@ -9,6 +9,7 @@ export interface IJob extends Document {
   title: string;
   company: string;
   url: string;
+  applyUrl?: string;
   source: JobSource;
   status: JobStatus;
   priority: Priority;
@@ -43,6 +44,15 @@ export interface IJob extends Document {
     sent: boolean;
     sentAt?: Date;
   };
+  // ApplyPilot fields
+  score?: number;
+  scoreReasoning?: string;
+  legitimacy?: number;
+  resumeUrl?: string;
+  coverLetterUrl?: string;
+  filesExpireAt?: Date;
+  notifyType?: string;
+  receivedAt?: Date;
   createdAt: Date;
 }
 
@@ -89,6 +99,15 @@ const JobSchema: Schema = new Schema({
     sentAt: Date,
   },
   createdAt: { type: Date, default: Date.now },
+  applyUrl: String,
+  score: { type: Number, min: 1, max: 10 },
+  scoreReasoning: String,
+  legitimacy: { type: Number, enum: [1, 2, 3] },
+  resumeUrl: String,
+  coverLetterUrl: String,
+  filesExpireAt: Date,
+  notifyType: String,
+  receivedAt: Date,
 });
 
 export default mongoose.models.Job || mongoose.model<IJob>('Job', JobSchema);

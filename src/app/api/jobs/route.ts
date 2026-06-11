@@ -43,7 +43,12 @@ export async function POST(request: Request) {
     for (const job of jobsToInsert) {
       const existing = job.url ? await Job.findOne({ url: job.url }) : null;
       if (!existing) {
-        newJobs.push(job);
+        const initialStatus = job.status ?? 'new';
+        newJobs.push({
+          ...job,
+          status: initialStatus,
+          stageHistory: [{ stage: initialStatus, date: new Date() }],
+        });
       } else {
         duplicates++;
       }

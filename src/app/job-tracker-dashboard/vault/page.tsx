@@ -83,8 +83,10 @@ export default function VaultPage() {
     if (!confirm("Delete this resource?")) return;
     setDeletingId(id);
     try {
-      await apiFetch(`/api/vault/${id}`, { method: "DELETE" });
-      setResources((prev) => prev.filter((r) => r.id !== id));
+      const res = await apiFetch(`/api/vault/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setResources((prev) => prev.filter((r) => r.id !== id));
+      }
     } finally {
       setDeletingId(null);
     }

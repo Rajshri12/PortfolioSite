@@ -926,7 +926,7 @@ function TaskForm({ onClose, onAdd, selectedDate, initialTask }: { onClose: () =
     e.preventDefault();
     if (!text.trim()) return;
 
-    const taskData = {
+    const taskData: Record<string, unknown> = {
       text,
       url: url.trim() || undefined,
       category,
@@ -936,8 +936,11 @@ function TaskForm({ onClose, onAdd, selectedDate, initialTask }: { onClose: () =
         days: recurrenceType === 'weekly' ? selectedDays : []
       },
       date: recurrenceType === 'none' ? format(selectedDate, 'yyyy-MM-dd') : undefined,
-      completedDates: []
     };
+    // Only seed completedDates on creation — never overwrite it on edit
+    if (!initialTask) {
+      taskData.completedDates = [];
+    }
 
 
     try {

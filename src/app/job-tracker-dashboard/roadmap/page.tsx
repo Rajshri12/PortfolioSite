@@ -66,17 +66,39 @@ export default function RoadmapPage() {
 
   async function cycleStatus(topicId: string, current: TopicStatus) {
     const next: TopicStatus = current === "not_started" ? "in_progress" : current === "in_progress" ? "completed" : "not_started";
+    // Optimistic update
+    setStages((prev) =>
+      prev.map((s) => ({
+        ...s,
+        topics: s.topics.map((t) =>
+          t.id === topicId ? { ...t, progress: { status: next } } : t
+        ),
+      }))
+    );
     setUpdating(topicId);
     try {
-      await apiFetch(`/api/roadmap/topics/${topicId}`, {
+      const res = await apiFetch(`/api/roadmap/topics/${topicId}`, {
         method: "PATCH",
         body: JSON.stringify({ status: next }),
       });
+      if (!res.ok) {
+        // Revert on failure
+        setStages((prev) =>
+          prev.map((s) => ({
+            ...s,
+            topics: s.topics.map((t) =>
+              t.id === topicId ? { ...t, progress: { status: current } } : t
+            ),
+          }))
+        );
+      }
+    } catch {
+      // Revert on network error
       setStages((prev) =>
         prev.map((s) => ({
           ...s,
           topics: s.topics.map((t) =>
-            t.id === topicId ? { ...t, progress: { status: next } } : t
+            t.id === topicId ? { ...t, progress: { status: current } } : t
           ),
         }))
       );

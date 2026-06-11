@@ -9,7 +9,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!db) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 500 });
 
     const body = await request.json();
-    const updatedJob = await Job.findByIdAndUpdate(id, { $set: body }, { new: true, runValidators: true });
+
+    const update: any = { $set: body };
+
+    if (body.status) {
+      update.$push = {
+        stageHistory: { stage: body.status, date: new Date(), notes: body._stageNote ?? undefined },
+      };
+      delete update.$set._stageNote;
+      if (body.status === 'applied' && !body.appliedAt) {
+        update.$set.appliedAt = new Date();
+      }
+    }
+
+    const updatedJob = await Job.findByIdAndUpdate(id, update, { new: true, runValidators: true });
 
     if (!updatedJob) return NextResponse.json({ success: false, error: 'Job not found' }, { status: 404 });
     return NextResponse.json({ success: true, data: updatedJob });
