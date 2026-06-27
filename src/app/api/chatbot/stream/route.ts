@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -70,13 +71,21 @@ Weekend: Project work — deploy, write case study, open source contribution
 - If you don't know something specific, say so — don't hallucinate
 - Rate limit reminder: if user asks repetitive questions, gently suggest they bookmark the answer`;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const session = await getSession(request);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json();
-  // Support both { messages } (new) and { question, history } (legacy chatbot page)
+  // Support both { messages } (new) and { question, history, userContext } (chatbot page)
   const messages = body.messages ?? [
     ...(body.history ?? []),
     ...(body.question ? [{ role: "user", content: body.question }] : []),
   ];
+
+  // Inject live user context into system prompt
+  const ctx = body.userContext;
+  const contextSuffix = ctx
+    ? `\n\n== CURRENT USER STATE ==\nStreak: ${ctx.streak ?? 0} days\nCoins: ${ctx.coins ?? 0}\nLevel: ${ctx.level ?? 1}\nMood today: ${ctx.mood ?? "not set"}\n\nUse this context subtly — e.g. if mood is "hard", be encouraging. If streak is 0, gently motivate. If coins are high, acknowledge progress. Don't narrate the numbers back verbatim.`
+    : "";
 
   if (!OPENAI_API_KEY) {
     // Mock SSE response when no key configured
@@ -100,7 +109,7 @@ export async function POST(request: Request) {
   }
 
   const openaiMessages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: SYSTEM_PROMPT + contextSuffix },
     ...(messages ?? []),
   ];
 

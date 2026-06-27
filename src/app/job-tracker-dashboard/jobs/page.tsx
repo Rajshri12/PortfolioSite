@@ -8,7 +8,7 @@ import {
   CheckCircle2, Clock, Trash2, Send, Loader2, Sparkles, Link,
   MapPin, DollarSign, Tag, MessageSquare, Phone, Star, UserCheck,
   TrendingUp, BarChart2, Zap, Copy, Check, FileText, ShieldCheck,
-  ShieldAlert, ShieldX, Bot, CalendarClock,
+  ShieldAlert, ShieldX, Bot, CalendarClock, Lock,
 } from "lucide-react";
 import { format, isPast, formatDistanceToNow } from "date-fns";
 
@@ -963,12 +963,69 @@ function StatsBar({ jobs }: { jobs: Job[] }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+function LockedGate({ streak }: { streak: number }) {
+  const target = 30;
+  const pct = Math.min(100, Math.round((streak / target) * 100));
+  const daysLeft = Math.max(0, target - streak);
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="glass-panel bg-white rounded-[2.5rem] p-12 border-slate-100 shadow-sm max-w-lg w-full text-center"
+      >
+        <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <Lock className="w-10 h-10 text-slate-400" />
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 mb-3">Job Orbit Locked</h2>
+        <p className="text-slate-500 font-medium leading-relaxed mb-8">
+          Your Job Engine unlocks after <span className="font-black text-slate-800">30 days of consistency</span>.
+          Build the habit first — then conquer the job hunt.
+        </p>
+        <div className="bg-slate-50 rounded-2xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-black text-slate-600">Streak progress</span>
+            <span className="text-sm font-black text-blue-600">{streak}/{target} days</span>
+          </div>
+          <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
+              className="h-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
+            />
+          </div>
+          <p className="text-xs font-bold text-slate-400">
+            {daysLeft === 0 ? "Ask admin to unlock!" : `${daysLeft} day${daysLeft !== 1 ? "s" : ""} to go`}
+          </p>
+        </div>
+        <p className="text-xs text-slate-400 font-medium">
+          Keep completing your daily tasks to build your streak. 🔥
+        </p>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function JobOrbitPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [activeTab, setActiveTab] = useState<"pipeline" | "referrals" | "outreach">("pipeline");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [gateCheck, setGateCheck] = useState<{ checked: boolean; locked: boolean; streak: number }>({ checked: false, locked: false, streak: 0 });
+  const [coinToast, setCoinToast] = useState<{ coins: number; badge?: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => {
+        const locked = d.role === "user" && !d.applicationUnlocked;
+        setGateCheck({ checked: true, locked, streak: d.streak ?? 0 });
+      })
+      .catch(() => setGateCheck({ checked: true, locked: false, streak: 0 }));
+  }, []);
 
   const normaliseJob = (j: Job): Job => ({
     ...j,
@@ -1000,9 +1057,14 @@ export default function JobOrbitPage() {
       const data = await res.json();
       if (data.success && data.data) {
         const fresh = normaliseJob(data.data);
-        // Sync with authoritative DB state (stageHistory, appliedAt, etc.)
         setJobs(prev => prev.map(j => j._id === id ? fresh : j));
         if (selectedJob?._id === id) setSelectedJob(fresh);
+        // Show coin toast if cold email reward was awarded
+        if (data.coinsAwarded > 0) {
+          const badge = data.newBadges?.[0];
+          setCoinToast({ coins: data.coinsAwarded, badge: badge ? `${badge.emoji} ${badge.title}` : undefined });
+          setTimeout(() => setCoinToast(null), 4000);
+        }
       } else {
         fetchJobs();
       }
@@ -1025,6 +1087,18 @@ export default function JobOrbitPage() {
     { id: "referrals" as const, label: "Referrals", icon: Users, count: jobs.filter(j => j.referral).length },
     { id: "outreach" as const, label: "Cold Outreach", icon: Mail, count: jobs.filter(j => j.coldEmail).length },
   ];
+
+  if (!gateCheck.checked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (gateCheck.locked) {
+    return <LockedGate streak={gateCheck.streak} />;
+  }
 
   return (
     <div className="min-h-screen p-6 md:p-10 max-w-[1400px] mx-auto">
@@ -1093,6 +1167,24 @@ export default function JobOrbitPage() {
             onClose={() => setAddOpen(false)}
             onAdd={(newJob) => setJobs(prev => [normaliseJob(newJob), ...prev])}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Coin reward toast */}
+      <AnimatePresence>
+        {coinToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-[200] bg-slate-900 text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-3 max-w-xs"
+          >
+            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0 text-lg">🧊</div>
+            <div>
+              <p className="font-black text-sm">Cold email sent!</p>
+              <p className="text-xs text-slate-300 font-medium">+{coinToast.coins} coins awarded{coinToast.badge ? ` · ${coinToast.badge}` : ""}</p>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

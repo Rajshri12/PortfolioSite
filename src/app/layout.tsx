@@ -11,6 +11,11 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Raj Shri Guru | Backend Engineer & AI System Designer",
   description: "Portfolio of Raj Shri Guru, showcasing expertise in backend engineering, scalable systems, and AI-powered solutions.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export default function RootLayout({

@@ -1,38 +1,30 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
-import UserStats from "@/models/UserStats";
+import User from "@/models/User";
+import { getSession } from "@/lib/auth";
 
-export async function POST() {
+// Legacy "streak freeze" → now uses joker tokens from User model
+export async function POST(request: NextRequest) {
+  const session = await getSession(request);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     await connectToDatabase();
+    const userId = session.impersonating ?? session.userId;
+    const user = await User.findOne({ userId });
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const now = new Date();
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
-    let stats = await UserStats.findOne({ key: "main" });
-    if (!stats) {
-      stats = await UserStats.create({ key: "main", freezeMonthKey: monthKey });
+    if (user.jokerTokens <= 0) {
+      return NextResponse.json({ error: "No joker tokens remaining" }, { status: 400 });
     }
 
-    // Reset freeze count if we're in a new month
-    if (stats.freezeMonthKey !== monthKey) {
-      stats.freezeCountThisMonth = 0;
-      stats.freezeMonthKey = monthKey;
-    }
-
-    if (stats.freezeCountThisMonth >= 2) {
-      return NextResponse.json(
-        { error: "No freezes remaining this month" },
-        { status: 400 }
-      );
-    }
-
-    stats.freezeCountThisMonth += 1;
-    await stats.save();
+    user.jokerTokens -= 1;
+    user.jokerUsedThisWeek = true;
+    await user.save();
 
     return NextResponse.json({
       ok: true,
-      freezes_remaining: 2 - stats.freezeCountThisMonth,
+      joker_tokens_remaining: user.jokerTokens,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

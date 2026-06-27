@@ -4,6 +4,7 @@ export type VaultCategory = "course" | "job" | "tool" | "checkpoint" | "free";
 export type VaultStatus = "active" | "done" | "later";
 
 export interface IVaultItem extends Document {
+  userId: string;
   category: VaultCategory;
   title: string;
   url: string;
@@ -17,6 +18,7 @@ export interface IVaultItem extends Document {
 
 const VaultItemSchema = new Schema<IVaultItem>(
   {
+    userId: { type: String, required: true, index: true },
     category: {
       type: String,
       enum: ["course", "job", "tool", "checkpoint", "free"],

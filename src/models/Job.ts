@@ -6,6 +6,7 @@ export type ReferralStatus = 'planning' | 'asked' | 'received' | 'declined';
 export type Priority = 'dream' | 'high' | 'medium' | 'low';
 
 export interface IJob extends Document {
+  userId: string;
   title: string;
   company: string;
   url: string;
@@ -62,6 +63,7 @@ const StageEventSchema = new Schema(
 );
 
 const JobSchema: Schema = new Schema({
+  userId: { type: String, required: true, index: true },
   title: { type: String, required: true },
   company: { type: String, required: true },
   url: { type: String, required: true },

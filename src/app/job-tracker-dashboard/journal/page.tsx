@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, Save, Calendar, Loader2, Trash2, Search, X,
   Sparkles, ChevronDown, ChevronUp, Edit3, Flame, TrendingUp,
-  Hash, BarChart2, Clock, CheckCircle2,
+  Hash, BarChart2, Clock, CheckCircle2, Lock, Unlock, ShieldCheck,
 } from "lucide-react";
 import {
   format, parseISO, differenceInDays, isToday,
@@ -16,9 +16,17 @@ import { apiFetch } from "@/lib/backend";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Mood = "rough" | "meh" | "okay" | "good" | "fire";
+type EntryType = "general" | "thought" | "summary" | "issue";
 
-interface RawEntry { id: string; date: string; content: string }
+interface RawEntry { id: string; date: string; content: string; entryType?: EntryType; isPrivate?: boolean }
 interface ParsedEntry extends RawEntry { text: string; mood?: Mood; tags: string[] }
+
+const ENTRY_TYPES: { id: EntryType; emoji: string; label: string; color: string; active: string }[] = [
+  { id: "general",  emoji: "✏️",  label: "General",  color: "text-slate-600",  active: "bg-slate-100 border-slate-400 text-slate-700" },
+  { id: "thought",  emoji: "💭",  label: "Thought",  color: "text-violet-600", active: "bg-violet-100 border-violet-400 text-violet-700" },
+  { id: "summary",  emoji: "📋",  label: "Summary",  color: "text-blue-600",   active: "bg-blue-100 border-blue-400 text-blue-700" },
+  { id: "issue",    emoji: "⚔️",  label: "Issue",    color: "text-rose-600",   active: "bg-rose-100 border-rose-400 text-rose-700" },
+];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -260,6 +268,8 @@ export default function JournalPage() {
   const [text, setText] = useState("");
   const [mood, setMood] = useState<Mood | undefined>(undefined);
   const [tags, setTags] = useState<string[]>([]);
+  const [entryType, setEntryType] = useState<EntryType>("general");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [editingTodayId, setEditingTodayId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -267,6 +277,7 @@ export default function JournalPage() {
   const [reflecting, setReflecting] = useState(false);
   const [todayReflection, setTodayReflection] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [coinToast, setCoinToast] = useState<{ coins: number; happyHour: boolean } | null>(null);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -308,9 +319,22 @@ export default function JournalPage() {
     try {
       const encoded = encode(text, mood, tags);
       if (editingTodayId) {
-        await apiFetch(`/api/journal/${editingTodayId}`, { method: "PATCH", body: JSON.stringify({ content: encoded }) });
+        await apiFetch(`/api/journal/${editingTodayId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ content: encoded, entryType, isPrivate }),
+        });
       } else {
-        await apiFetch("/api/journal", { method: "POST", body: JSON.stringify({ date: today, content: encoded }) });
+        const res = await apiFetch("/api/journal", {
+          method: "POST",
+          body: JSON.stringify({ date: today, content: encoded, entryType, isPrivate }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.coinsAwarded > 0) {
+            setCoinToast({ coins: data.coinsAwarded, happyHour: data.happyHour });
+            setTimeout(() => setCoinToast(null), 4000);
+          }
+        }
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -384,6 +408,12 @@ export default function JournalPage() {
         </div>
       </div>
 
+      {/* Privacy notice */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl mb-6 text-xs font-medium text-slate-500">
+        <ShieldCheck className="w-4 h-4 text-slate-400 shrink-0" />
+        <span>🔒 <span className="font-bold text-slate-600">Private entries are end-to-end yours</span> — admins cannot read entries marked private, even in impersonation mode.</span>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
@@ -441,6 +471,24 @@ export default function JournalPage() {
             )}
           </AnimatePresence>
 
+          {/* Entry type selector */}
+          <div className="mb-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Entry type</p>
+            <div className="flex gap-1.5 flex-wrap">
+              {ENTRY_TYPES.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setEntryType(t.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                    entryType === t.id ? t.active : "bg-white border-slate-200 text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  <span>{t.emoji}</span> {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Mood selector */}
           <div className="mb-3">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">How are you feeling?</p>
@@ -491,7 +539,21 @@ export default function JournalPage() {
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              {/* Private toggle */}
+              <button
+                onClick={() => setIsPrivate(v => !v)}
+                title={isPrivate ? "Private — only you can see this" : "Public — mark as private to hide from admin"}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full font-black text-xs border transition-all ${
+                  isPrivate
+                    ? "bg-rose-50 border-rose-300 text-rose-600"
+                    : "bg-white border-slate-200 text-slate-400 hover:border-rose-200 hover:text-rose-400"
+                }`}
+              >
+                {isPrivate ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                {isPrivate ? "Private" : "Private?"}
+              </button>
+
               {text.trim() && (
                 <button
                   onClick={getTodayReflection}
@@ -721,6 +783,26 @@ export default function JournalPage() {
           </div>
         )}
       </div>
+
+      {/* Coin reward toast */}
+      <AnimatePresence>
+        {coinToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-[200] bg-slate-900 text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-3 max-w-xs"
+          >
+            <div className="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center shrink-0 text-lg">📖</div>
+            <div>
+              <p className="font-black text-sm">Journal saved!</p>
+              <p className="text-xs text-slate-300 font-medium">
+                +{coinToast.coins} coins{coinToast.happyHour ? " · ⚡ 2x Happy Hour" : ""}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

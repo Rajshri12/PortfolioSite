@@ -8,7 +8,7 @@ export interface Task {
     id: string;
     text: string;
     url?: string;
-    category: 'learning' | 'job-search';
+    category: 'learning' | 'job-search' | 'self-care';
     completedDates: string[];
     type: 'custom' | 'daily';
     date: string;

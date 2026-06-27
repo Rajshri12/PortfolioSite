@@ -40,6 +40,7 @@ export default function VaultPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [coinToast, setCoinToast] = useState<{ coins: number; happyHour: boolean } | null>(null);
 
   const load = () =>
     apiFetch("/api/vault")
@@ -70,9 +71,14 @@ export default function VaultPage() {
         }),
       });
       if (res.ok) {
+        const data = await res.json();
         setForm(EMPTY_FORM);
         setShowAdd(false);
         await load();
+        if (data.coinsAwarded > 0) {
+          setCoinToast({ coins: data.coinsAwarded, happyHour: data.happyHour });
+          setTimeout(() => setCoinToast(null), 4000);
+        }
       }
     } finally {
       setSaving(false);
@@ -288,6 +294,26 @@ export default function VaultPage() {
               </form>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Coin reward toast */}
+      <AnimatePresence>
+        {coinToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-[200] bg-slate-900 text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-3 max-w-xs"
+          >
+            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shrink-0 text-lg">📚</div>
+            <div>
+              <p className="font-black text-sm">Resource saved!</p>
+              <p className="text-xs text-slate-300 font-medium">
+                +{coinToast.coins} coins{coinToast.happyHour ? " · ⚡ 2x Happy Hour" : ""}
+              </p>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

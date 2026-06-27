@@ -1,24 +1,46 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface IRewardConfig {
+  type: 'coins' | 'custom';
+  coins?: number;        // override; null/undefined = use global GameConfig default
+  rewardId?: string;     // Reward catalogue _id when type === 'custom'
+  rewardLabel?: string;  // denormalised label for display
+  quantity?: number;     // quantity of custom reward
+}
+
 export interface ITask extends Document {
+  userId: string;
   text: string;
-  category: 'learning' | 'job-search';
-  type: 'daily' | 'custom'; // sub-category for job-search
+  category: 'learning' | 'job-search' | 'self-care';
+  type: 'daily' | 'custom';
   url?: string;
-  date?: string; // For one-time tasks: YYYY-MM-DD
+  date?: string;
   recurrence: {
     type: 'none' | 'daily' | 'weekly';
-    days: number[]; // 0-6
+    days: number[];
   };
-   completedDates: string[]; // List of YYYY-MM-DD
-   excludedDates: string[]; // List of YYYY-MM-DD
-   endDate?: string; // YYYY-MM-DD
-   createdAt: Date;
- }
+  completedDates: string[];
+  excludedDates: string[];
+  endDate?: string;
+  rewardConfig?: IRewardConfig;
+  createdAt: Date;
+}
+
+const RewardConfigSchema = new Schema(
+  {
+    type: { type: String, enum: ['coins', 'custom'], default: 'coins' },
+    coins: { type: Number },
+    rewardId: { type: String },
+    rewardLabel: { type: String },
+    quantity: { type: Number },
+  },
+  { _id: false }
+);
 
 const TaskSchema: Schema = new Schema({
+  userId: { type: String, required: true, index: true },
   text: { type: String, required: true },
-  category: { type: String, enum: ['learning', 'job-search'], required: true },
+  category: { type: String, enum: ['learning', 'job-search', 'self-care'], required: true },
   type: { type: String, enum: ['daily', 'custom'], default: 'daily' },
   url: { type: String },
   date: { type: String },
@@ -26,10 +48,15 @@ const TaskSchema: Schema = new Schema({
     type: { type: String, enum: ['none', 'daily', 'weekly'], default: 'none' },
     days: [{ type: Number }]
   },
-   completedDates: [{ type: String }],
-   excludedDates: [{ type: String }],
-   endDate: { type: String },
-   createdAt: { type: Date, default: Date.now },
- });
+  completedDates: [{ type: String }],
+  excludedDates: [{ type: String }],
+  endDate: { type: String },
+  rewardConfig: { type: RewardConfigSchema },
+  createdAt: { type: Date, default: Date.now },
+});
+
+if (process.env.NODE_ENV !== "production" && mongoose.models.Task) {
+  delete mongoose.models.Task;
+}
 
 export default mongoose.models.Task || mongoose.model<ITask>('Task', TaskSchema);
