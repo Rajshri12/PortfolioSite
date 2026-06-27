@@ -590,7 +590,18 @@ export default function RoadmapPage() {
       {loading?(
         <div className="flex justify-center items-center h-64"><Loader2 className="w-8 h-8 text-blue-500 animate-spin"/></div>
       ):filtered.length===0?(
-        <div className="glass-panel rounded-3xl p-12 text-center"><Map className="w-12 h-12 text-slate-300 mx-auto mb-3"/><p className="text-slate-500 font-bold">No stages found.</p></div>
+        <div className="space-y-4">
+          <div className="glass-panel rounded-3xl p-12 text-center"><Map className="w-12 h-12 text-slate-300 mx-auto mb-3"/><p className="text-slate-500 font-bold">No stages found.</p></div>
+          {editMode && (
+            <AddStageRow
+              knownTracks={knownTracks}
+              onAdded={newStage => {
+                setStages(prev => [...prev, newStage]);
+                setExpanded(e => ({...e, [newStage.id]: true}));
+              }}
+            />
+          )}
+        </div>
       ):(
         <div className="space-y-4">
           {filtered.map((stage, _i) => {
