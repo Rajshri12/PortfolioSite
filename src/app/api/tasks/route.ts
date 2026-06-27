@@ -27,6 +27,12 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
     const body = await request.json();
     const userId = session.impersonating ?? session.userId;
+
+    // Non-admin creating a task with a custom reward → mark pending approval
+    if (session.role !== 'admin' && body.rewardConfig) {
+      body.rewardConfig = { ...body.rewardConfig, approvalStatus: 'pending' };
+    }
+
     const task = await Task.create({ ...body, userId });
     return NextResponse.json({ success: true, data: task }, { status: 201 });
   } catch (error: any) {

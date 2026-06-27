@@ -21,6 +21,12 @@ export async function PATCH(
     await connectToDatabase();
     const body = await request.json();
     const userId = session.impersonating ?? session.userId;
+
+    // Non-admin changing a task's rewardConfig → reset to pending
+    if (session.role !== 'admin' && body.rewardConfig) {
+      body.rewardConfig = { ...body.rewardConfig, approvalStatus: 'pending' };
+    }
+
     // Fetch old state first so we can compare completedDates before/after
     const oldTask = await Task.findOne({ _id: id, userId }).lean();
     if (!oldTask) return NextResponse.json({ success: false, error: 'Task not found' }, { status: 404 });
@@ -35,6 +41,7 @@ export async function PATCH(
     let happyHour = false;
     let customReward: { label: string; quantity: number } | null = null;
     let newBadges: Array<{ slug: string; title: string; emoji: string }> = [];
+    let rewardPending = false;
 
     const isToggling = body.completedDates !== undefined;
     // Use client-supplied date array to derive "today" — avoids UTC/local timezone mismatch
@@ -63,9 +70,15 @@ export async function PATCH(
     if (justCompleted) {
       const rc = task.rewardConfig;
       const rcType = rc && typeof rc.type === 'string' ? rc.type : 'coins';
+      // Block reward if user set a custom reward that hasn't been approved yet
+      const rewardBlocked = rc && rc.approvalStatus === 'pending';
+      const rewardRejected = rc && rc.approvalStatus === 'rejected';
       const config = await getGameConfig();
 
-      if (!rc || rcType === 'coins') {
+      if (rewardBlocked || rewardRejected) {
+        rewardPending = !!rewardBlocked;
+        // Reward pending approval or was rejected — award nothing, fall through to streak/badges
+      } else if (!rc || rcType === 'coins') {
         const coinAmt = rc?.coins ?? config.rewards.taskComplete;
         const result = await awardCoins(userId, coinAmt, 'task_complete', `task:${id}`);
         coinsAwarded = result.awarded;
@@ -105,8 +118,8 @@ export async function PATCH(
         }
       }
 
-      // All-tasks-done bonus (coins only)
-      if (!rc || rcType === 'coins') {
+      // All-tasks-done bonus (coins only, not blocked)
+      if (!rewardBlocked && !rewardRejected && (!rc || rcType === 'coins')) {
         const allTasks = await Task.find({ userId }).lean();
         const allDoneToday = allTasks.every((t) =>
           (t.completedDates ?? []).includes(today) ||
@@ -140,7 +153,7 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ success: true, data: task, coinsAwarded, happyHour, customReward, newBadges });
+    return NextResponse.json({ success: true, data: task, coinsAwarded, happyHour, customReward, newBadges, rewardPending });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }

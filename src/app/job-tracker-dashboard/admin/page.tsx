@@ -135,6 +135,19 @@ interface AdminRedemption {
   requestedAt: string;
 }
 
+interface TaskRewardRequest {
+  _id: string;
+  userId: string;
+  text: string;
+  rewardConfig: {
+    type: "coins" | "custom";
+    coins?: number;
+    rewardLabel?: string;
+    approvalStatus: "pending" | "approved" | "rejected";
+  };
+  createdAt: string;
+}
+
 const ALERT_TYPE_LABELS: Record<string, string> = {
   mood_drop: "😤 Mood Drop",
   streak_broken: "🔥 Streak Broken",
@@ -173,6 +186,7 @@ export default function AdminPage() {
   const [impersonating, setImpersonating] = useState<string | null>(null);
   const [adminRewards, setAdminRewards] = useState<AdminReward[]>([]);
   const [adminRedemptions, setAdminRedemptions] = useState<AdminRedemption[]>([]);
+  const [taskRewardRequests, setTaskRewardRequests] = useState<TaskRewardRequest[]>([]);
 
   // check role + impersonation state
   useEffect(() => {
@@ -205,13 +219,14 @@ export default function AdminPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [userRes, alertsRes, txRes, configRes, rewardsRes, redemptionsRes] = await Promise.all([
+      const [userRes, alertsRes, txRes, configRes, rewardsRes, redemptionsRes, taskRewardsRes] = await Promise.all([
         fetch("/api/admin/user?userId=user1"),
         fetch("/api/admin/alerts?resolved=false"),
         fetch("/api/coins/history?limit=50"),
         fetch("/api/admin/game-config"),
         fetch("/api/admin/rewards"),
         fetch("/api/admin/redemptions"),
+        fetch("/api/admin/task-rewards"),
       ]);
       if (userRes.ok) {
         const u = await userRes.json();
@@ -222,6 +237,7 @@ export default function AdminPage() {
       if (configRes.ok) setGameConfig(await configRes.json());
       if (rewardsRes.ok) setAdminRewards((await rewardsRes.json()).rewards ?? []);
       if (redemptionsRes.ok) setAdminRedemptions((await redemptionsRes.json()).redemptions ?? []);
+      if (taskRewardsRes.ok) setTaskRewardRequests((await taskRewardsRes.json()).tasks ?? []);
     } catch {}
     finally { setLoading(false); }
   }, []);
@@ -295,6 +311,11 @@ export default function AdminPage() {
                 {alerts.length}
               </span>
             )}
+            {key === "rewards" && taskRewardRequests.filter(t => t.rewardConfig?.approvalStatus === "pending").length > 0 && (
+              <span className="ml-1 bg-violet-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                {taskRewardRequests.filter(t => t.rewardConfig?.approvalStatus === "pending").length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -366,6 +387,7 @@ export default function AdminPage() {
             <RewardsTab
               rewards={adminRewards}
               redemptions={adminRedemptions}
+              taskRewardRequests={taskRewardRequests}
               onRefresh={fetchAll}
             />
           )}
@@ -1257,10 +1279,12 @@ function UserTelegramPanel() {
 function RewardsTab({
   rewards,
   redemptions,
+  taskRewardRequests,
   onRefresh,
 }: {
   rewards: AdminReward[];
   redemptions: AdminRedemption[];
+  taskRewardRequests: TaskRewardRequest[];
   onRefresh: () => void;
 }) {
   const EMPTY_FORM = { emoji: "🎁", label: "", description: "", coinCost: 500, coinStep: 0, isActive: true, isComingSoon: false };
@@ -1333,6 +1357,21 @@ function RewardsTab({
   const pendingRedemptions = redemptions.filter(r => r.status === "pending");
   const approvedRedemptions = redemptions.filter(r => r.status === "approved");
   const otherRedemptions = redemptions.filter(r => r.status !== "pending" && r.status !== "approved");
+
+  const pendingTaskRewards = taskRewardRequests.filter(t => t.rewardConfig?.approvalStatus === "pending");
+  const otherTaskRewards = taskRewardRequests.filter(t => t.rewardConfig?.approvalStatus !== "pending");
+
+  async function taskRewardAction(taskId: string, action: "approve" | "reject") {
+    setActionSaving(`treward-${action}-${taskId}`);
+    try {
+      await fetch(`/api/admin/task-rewards/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      onRefresh();
+    } finally { setActionSaving(null); }
+  }
 
   return (
     <div className="space-y-6">
@@ -1451,6 +1490,71 @@ function RewardsTab({
                 )}
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Mission Reward Requests */}
+      <div className="glass-panel bg-white rounded-[2.5rem] p-6 border-slate-100 shadow-sm">
+        <h3 className="text-base font-black text-slate-900 mb-5 flex items-center gap-2">
+          <span className="text-lg">⚡</span> Mission Reward Requests
+          {pendingTaskRewards.length > 0 && (
+            <span className="ml-2 bg-violet-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{pendingTaskRewards.length} pending</span>
+          )}
+        </h3>
+        <p className="text-[11px] text-slate-400 font-medium mb-4">
+          When Rajshri adds a custom reward to a mission, it needs your approval before coins/rewards are granted on completion.
+        </p>
+        {taskRewardRequests.length === 0 ? (
+          <EmptyState text="No mission reward requests yet." />
+        ) : (
+          <div className="space-y-3">
+            {[...pendingTaskRewards, ...otherTaskRewards].map(t => {
+              const rc = t.rewardConfig;
+              const isPending = rc?.approvalStatus === "pending";
+              const isRejected = rc?.approvalStatus === "rejected";
+              const rewardDesc = rc?.type === "coins"
+                ? `🪙 ${rc.coins != null ? rc.coins.toLocaleString() + " coins" : "default coins"}`
+                : `🎁 ${rc?.rewardLabel ?? "Custom reward"}`;
+              return (
+                <div key={t._id} className={`rounded-2xl border px-4 py-4 ${isPending ? "bg-violet-50 border-violet-200" : isRejected ? "bg-rose-50 border-rose-100" : "bg-emerald-50 border-emerald-100"}`}>
+                  <div className="flex items-start gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-slate-900 mb-0.5">{t.text}</p>
+                      <p className="text-[11px] font-bold text-slate-500">{rewardDesc}</p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                        {t.userId} · {format(new Date(t.createdAt), "MMM d, yyyy")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-widest ${
+                        isPending ? "bg-violet-100 text-violet-700 border-violet-200"
+                        : isRejected ? "bg-rose-100 text-rose-600 border-rose-200"
+                        : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                      }`}>{rc?.approvalStatus}</span>
+                      {isPending && (
+                        <>
+                          <button
+                            onClick={() => taskRewardAction(t._id, "approve")}
+                            disabled={!!actionSaving}
+                            className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-xs transition-all disabled:opacity-50"
+                          >
+                            {actionSaving === `treward-approve-${t._id}` ? "…" : "Approve"}
+                          </button>
+                          <button
+                            onClick={() => taskRewardAction(t._id, "reject")}
+                            disabled={!!actionSaving}
+                            className="px-4 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl font-black text-xs transition-all disabled:opacity-50"
+                          >
+                            {actionSaving === `treward-reject-${t._id}` ? "…" : "Reject"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

@@ -1081,13 +1081,25 @@ function TaskItem({
           <p className={`text-base font-bold transition-all truncate ${isCompleted ? "text-slate-400 line-through" : "text-slate-800"}`}>
             {task.text}
           </p>
-          {task.recurrence.type !== "none" && (
-            <span className={`mt-1 inline-flex px-2 py-0.5 text-[8px] font-black uppercase rounded-md items-center gap-1 ${
-              task.category === "learning" ? "bg-indigo-50 text-indigo-600" : task.category === "self-care" ? "bg-rose-50 text-rose-500" : "bg-emerald-50 text-emerald-600"
-            }`}>
-              <Zap className="w-2 h-2" /> {task.recurrence.type}
-            </span>
-          )}
+          <div className="flex flex-wrap gap-1 mt-1">
+            {task.recurrence.type !== "none" && (
+              <span className={`inline-flex px-2 py-0.5 text-[8px] font-black uppercase rounded-md items-center gap-1 ${
+                task.category === "learning" ? "bg-indigo-50 text-indigo-600" : task.category === "self-care" ? "bg-rose-50 text-rose-500" : "bg-emerald-50 text-emerald-600"
+              }`}>
+                <Zap className="w-2 h-2" /> {task.recurrence.type}
+              </span>
+            )}
+            {(task as any).rewardConfig?.approvalStatus === "pending" && (
+              <span className="inline-flex px-2 py-0.5 text-[8px] font-black uppercase rounded-md items-center gap-1 bg-violet-50 text-violet-500">
+                ⏳ reward pending
+              </span>
+            )}
+            {(task as any).rewardConfig?.approvalStatus === "rejected" && (
+              <span className="inline-flex px-2 py-0.5 text-[8px] font-black uppercase rounded-md items-center gap-1 bg-rose-50 text-rose-500">
+                ✗ reward rejected
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-1 pr-4 pl-2 h-12 bg-white/50">
@@ -1276,7 +1288,7 @@ function TaskForm({
         {!rewardOpen ? (
           <button type="button" onClick={()=>{setRewardOpen(true);setRewardConfig({type:"coins"});}}
             className="w-full py-3 text-xs font-black text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-2xl border border-dashed border-amber-200 transition-all">
-            ⚡ Set custom reward for this mission
+            ⚡ Request custom reward for this mission
           </button>
         ) : (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
@@ -1286,6 +1298,7 @@ function TaskForm({
                 <X className="w-3.5 h-3.5"/>
               </button>
             </div>
+            <p className="text-[10px] text-amber-600 font-semibold">⏳ Reward needs admin approval before coins are granted on completion.</p>
             <div className="flex gap-2">
               <button type="button" onClick={()=>setRewardConfig(rc=>({...(rc??{}),type:"coins"}))}
                 className={`flex-1 py-2 rounded-xl text-xs font-black border-2 transition-all ${rewardConfig?.type==="coins"?"bg-amber-500 text-white border-amber-500":"bg-white text-slate-500 border-slate-200 hover:border-amber-300"}`}>

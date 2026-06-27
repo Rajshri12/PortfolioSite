@@ -18,6 +18,14 @@ export interface Task {
     };
     endDate?: string;
     excludedDates?: string[];
+    rewardConfig?: {
+        type: 'coins' | 'custom';
+        coins?: number;
+        rewardId?: string;
+        rewardLabel?: string;
+        quantity?: number;
+        approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
+    };
 }
 
 interface TaskContextType {

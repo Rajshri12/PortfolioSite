@@ -2,10 +2,11 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IRewardConfig {
   type: 'coins' | 'custom';
-  coins?: number;        // override; null/undefined = use global GameConfig default
-  rewardId?: string;     // Reward catalogue _id when type === 'custom'
-  rewardLabel?: string;  // denormalised label for display
-  quantity?: number;     // quantity of custom reward
+  coins?: number;
+  rewardId?: string;
+  rewardLabel?: string;
+  quantity?: number;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface ITask extends Document {
@@ -33,6 +34,7 @@ const RewardConfigSchema = new Schema(
     rewardId: { type: String },
     rewardLabel: { type: String },
     quantity: { type: Number },
+    approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: null },
   },
   { _id: false }
 );
