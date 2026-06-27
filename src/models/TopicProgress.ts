@@ -35,7 +35,7 @@ async function ensureIndexes(model: mongoose.Model<ITopicProgress>) {
       (idx: any) =>
         Object.keys(idx.key).length === 1 && idx.key.topicId !== undefined
     );
-    if (legacyIdx) {
+    if (legacyIdx?.name) {
       await model.collection.dropIndex(legacyIdx.name);
     }
   } catch {
