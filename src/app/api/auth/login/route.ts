@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { signSession } from "@/lib/auth";
 import connectToDatabase from "@/lib/mongodb";
 import User from "@/models/User";
+import ActivityLog from "@/models/ActivityLog";
 
 const CREDENTIALS = [
   {
@@ -39,11 +40,24 @@ export async function POST(req: NextRequest) {
 
   // Ensure user document exists in DB
   await connectToDatabase();
+  const now = new Date();
   await User.findOneAndUpdate(
     { userId: match.userId },
     { $setOnInsert: { userId: match.userId, email: match.email, role: match.role } },
     { upsert: true, new: true }
   );
+  await Promise.all([
+    User.findOneAndUpdate(
+      { userId: match.userId },
+      { $set: { lastLoginAt: now, lastActiveAt: now } }
+    ),
+    ActivityLog.create({
+      userId: match.userId,
+      event: "login",
+      page: "",
+      userAgent: (req.headers.get("user-agent") ?? "").slice(0, 200),
+    }),
+  ]);
 
   const token = await signSession({ userId: match.userId, role: match.role });
   const maxAge = 60 * 60 * 24 * 7; // 7 days

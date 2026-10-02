@@ -24,6 +24,8 @@ export interface IUser extends Document {
   telegramChatId?: string;
   telegramUsername?: string;
   journeyStartDate?: string;
+  lastActiveAt?: Date | null;
+  lastLoginAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +55,8 @@ const UserSchema = new Schema<IUser>(
     telegramChatId: { type: String, default: null },
     telegramUsername: { type: String, default: null },
     journeyStartDate: { type: String, default: null },
+    lastActiveAt: { type: Date, default: null },
+    lastLoginAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

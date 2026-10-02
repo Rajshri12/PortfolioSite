@@ -28,6 +28,7 @@ import {
   Gift,
   Edit2,
   Send,
+  Activity,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -112,6 +113,7 @@ const TABS = [
   { key: "controls",  label: "User Controls", icon: Shield },
   { key: "rewards",   label: "Rewards",       icon: Gift },
   { key: "notifications", label: "Notifications", icon: Send },
+  { key: "activity", label: "Activity", icon: Activity },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -171,6 +173,21 @@ interface PushDevice {
   endpointTail: string;
 }
 
+interface ActivityLogDoc {
+  _id: string;
+  userId: string;
+  event: "login" | "logout" | "page_view" | "heartbeat";
+  page: string;
+  createdAt: string;
+}
+
+interface UserActivitySummary {
+  userId: string;
+  role: string;
+  lastActiveAt: string | null;
+  lastLoginAt: string | null;
+}
+
 const ALERT_TYPE_LABELS: Record<string, string> = {
   mood_drop: "😤 Mood Drop",
   streak_broken: "🔥 Streak Broken",
@@ -212,6 +229,8 @@ export default function AdminPage() {
   const [taskRewardRequests, setTaskRewardRequests] = useState<TaskRewardRequest[]>([]);
   const [schedules, setSchedules] = useState<NotificationScheduleDoc[]>([]);
   const [pushDevices, setPushDevices] = useState<PushDevice[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLogDoc[]>([]);
+  const [userActivity, setUserActivity] = useState<UserActivitySummary[]>([]);
 
   // check role + impersonation state
   useEffect(() => {
@@ -244,7 +263,7 @@ export default function AdminPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [userRes, alertsRes, txRes, configRes, rewardsRes, redemptionsRes, taskRewardsRes, schedulesRes, devicesRes] = await Promise.all([
+      const [userRes, alertsRes, txRes, configRes, rewardsRes, redemptionsRes, taskRewardsRes, schedulesRes, devicesRes, activityRes] = await Promise.all([
         fetch("/api/admin/user?userId=user1"),
         fetch("/api/admin/alerts?resolved=false"),
         fetch("/api/coins/history?limit=50"),
@@ -254,6 +273,7 @@ export default function AdminPage() {
         fetch("/api/admin/task-rewards"),
         fetch("/api/admin/notifications"),
         fetch("/api/admin/notifications/log"),
+        fetch("/api/admin/activity?limit=150"),
       ]);
       if (userRes.ok) {
         const u = await userRes.json();
@@ -267,6 +287,11 @@ export default function AdminPage() {
       if (taskRewardsRes.ok) setTaskRewardRequests((await taskRewardsRes.json()).tasks ?? []);
       if (schedulesRes.ok) setSchedules((await schedulesRes.json()).schedules ?? []);
       if (devicesRes.ok) setPushDevices((await devicesRes.json()).devices ?? []);
+      if (activityRes.ok) {
+        const a = await activityRes.json();
+        setActivityLogs(a.logs ?? []);
+        setUserActivity(a.users ?? []);
+      }
     } catch {}
     finally { setLoading(false); }
   }, []);
@@ -426,6 +451,9 @@ export default function AdminPage() {
               devices={pushDevices}
               onRefresh={fetchAll}
             />
+          )}
+          {activeTab === "activity" && (
+            <ActivityTab logs={activityLogs} users={userActivity} />
           )}
         </motion.div>
       </AnimatePresence>
@@ -2011,6 +2039,128 @@ function NotificationsTab({
                 <p className="text-[10px] text-slate-400 shrink-0">added {format(new Date(d.createdAt), "MMM d")}</p>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Activity Tab ──────────────────────────────────────────────────────────────
+
+const EVENT_META: Record<string, { label: string; icon: string; color: string }> = {
+  login: { label: "Logged in", icon: "🔑", color: "text-emerald-600" },
+  logout: { label: "Logged out", icon: "🚪", color: "text-slate-500" },
+  page_view: { label: "Opened", icon: "👁️", color: "text-blue-600" },
+  heartbeat: { label: "Active", icon: "💓", color: "text-slate-400" },
+};
+
+const PAGE_LABELS: Record<string, string> = {
+  "/job-tracker-dashboard": "Home",
+  "/job-tracker-dashboard/jobs": "Job Orbit",
+  "/job-tracker-dashboard/roadmap": "Roadmap",
+  "/job-tracker-dashboard/progress": "Progress",
+  "/job-tracker-dashboard/chatbot": "ClarityBot",
+  "/job-tracker-dashboard/vault": "Vault",
+  "/job-tracker-dashboard/journal": "Journal",
+  "/job-tracker-dashboard/rewards": "Rewards",
+  "/job-tracker-dashboard/admin": "Admin Panel",
+};
+
+function timeAgo(date: Date | string): string {
+  const secs = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function ActivityTab({ logs, users }: { logs: ActivityLogDoc[]; users: UserActivitySummary[] }) {
+  const [filter, setFilter] = useState<"all" | "login" | "logout" | "page_view">("all");
+
+  const filtered = filter === "all" ? logs : logs.filter((l) => l.event === filter);
+
+  return (
+    <div className="space-y-6">
+
+      {/* Last-seen summary */}
+      <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+        <h3 className="text-lg font-black text-slate-900 mb-1">Last Seen</h3>
+        <p className="text-xs text-slate-400 font-medium mb-4">Updated on every page load and heartbeat (every 5 min with tab open).</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {users.map((u) => {
+            const active = u.lastActiveAt ? new Date(u.lastActiveAt) : null;
+            const isOnline = active ? Date.now() - active.getTime() < 10 * 60 * 1000 : false;
+            return (
+              <div key={u.userId} className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-slate-300"}`} />
+                  <p className="text-sm font-black text-slate-800">{u.userId}</p>
+                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-slate-200 text-slate-600">
+                    {u.role}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-medium">
+                  {active ? `Active ${timeAgo(active)}` : "Never seen"}
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  Last login: {u.lastLoginAt ? timeAgo(u.lastLoginAt) : "—"}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Activity feed */}
+      <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div>
+            <h3 className="text-lg font-black text-slate-900">Activity Feed</h3>
+            <p className="text-xs text-slate-400 font-medium">Page views, logins, logouts and heartbeats — newest first (last 90 days kept).</p>
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {(["all", "login", "logout", "page_view"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                  filter === f ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                }`}
+              >
+                {f === "all" ? "All" : f === "page_view" ? "Page views" : f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <EmptyState text="No activity recorded yet." />
+        ) : (
+          <div className="space-y-1.5 max-h-[480px] overflow-y-auto pr-1">
+            {filtered.map((l) => {
+              const meta = EVENT_META[l.event] ?? EVENT_META.page_view;
+              return (
+                <div key={l._id} className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-sm shrink-0">{meta.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-700">
+                      <span className={meta.color}>{meta.label}</span>
+                      {l.event === "page_view" && l.page && (
+                        <> — {PAGE_LABELS[l.page] ?? l.page}</>
+                      )}
+                      <span className="text-slate-400 font-medium"> · {l.userId}</span>
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-400 shrink-0" title={format(new Date(l.createdAt), "MMM d, yyyy HH:mm:ss")}>
+                    {format(new Date(l.createdAt), "MMM d, HH:mm")}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
