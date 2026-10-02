@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     await connectToDatabase();
     const today = new Date().toISOString().slice(0, 10);
 
-    const tasks = await Task.find({ userId: "user1" }).lean();
+    const tasks = await Task.find({ userId: process.env.USER_ID ?? "user1" }).lean();
     const todayTasks = tasks.filter((t) => {
       if (t.excludedDates?.includes(today)) return false;
       if (t.date) return t.date === today;

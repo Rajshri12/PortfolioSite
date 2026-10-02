@@ -224,6 +224,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
   const [impersonating, setImpersonating] = useState<string | null>(null);
+  const [targetUserId, setTargetUserId] = useState<string>("");
   const [adminRewards, setAdminRewards] = useState<AdminReward[]>([]);
   const [adminRedemptions, setAdminRedemptions] = useState<AdminRedemption[]>([]);
   const [taskRewardRequests, setTaskRewardRequests] = useState<TaskRewardRequest[]>([]);
@@ -239,6 +240,10 @@ export default function AdminPage() {
       .then((d) => {
         setRole(d.role);
         setImpersonating(d.impersonating ?? null);
+        fetch("/api/admin/target-user")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((t) => setTargetUserId(t?.userId ?? "user1"))
+          .catch(() => {});
         if (d.role !== "admin") router.replace("/job-tracker-dashboard");
       })
       .catch(() => router.replace("/job-tracker-dashboard"));
@@ -248,10 +253,10 @@ export default function AdminPage() {
     const res = await fetch("/api/admin/impersonate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: "user1" }),
+      body: JSON.stringify({ userId: targetUserId }),
     });
     if (res.ok) {
-      setImpersonating("user1");
+      setImpersonating(targetUserId);
     }
   }
 
@@ -263,8 +268,9 @@ export default function AdminPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      const uid = targetUserId || "user1";
       const [userRes, alertsRes, txRes, configRes, rewardsRes, redemptionsRes, taskRewardsRes, schedulesRes, devicesRes, activityRes] = await Promise.all([
-        fetch("/api/admin/user?userId=user1"),
+        fetch(`/api/admin/user?userId=${encodeURIComponent(uid)}`),
         fetch("/api/admin/alerts?resolved=false"),
         fetch("/api/coins/history?limit=50"),
         fetch("/api/admin/game-config"),
@@ -296,7 +302,7 @@ export default function AdminPage() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { if (role === "admin") fetchAll(); }, [role, fetchAll]);
+  useEffect(() => { if (role === "admin" && targetUserId) fetchAll(); }, [role, targetUserId, fetchAll]);
 
   if (role === null || loading) {
     return (
@@ -334,7 +340,7 @@ export default function AdminPage() {
           >
             <UserCog className="w-5 h-5 text-amber-900 shrink-0" />
             <span className="text-amber-900 font-black text-sm flex-1">
-              Acting as <span className="underline">user1</span> — all data reads use their context. API routes will respond as this user.
+              Acting as <span className="underline">{impersonating}</span> — all data reads use their context. API routes will respond as this user.
             </span>
             <button
               onClick={stopImpersonation}
@@ -397,7 +403,7 @@ export default function AdminPage() {
                 await fetch("/api/admin/coins-adjust", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ userId: "user1", amount, reason }),
+                  body: JSON.stringify({ userId: targetUserId, amount, reason }),
                 });
                 fetchAll();
               }}
@@ -424,12 +430,13 @@ export default function AdminPage() {
             <ControlsTab
               userData={userData}
               impersonating={impersonating}
+              targetUserId={targetUserId}
               rewards={adminRewards}
               onUpdate={async (body) => {
                 const res = await fetch("/api/admin/user", {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ userId: "user1", ...body }),
+                  body: JSON.stringify({ userId: targetUserId, ...body }),
                 });
                 if (res.ok) fetchAll();
               }}
@@ -483,7 +490,7 @@ function OverviewTab({ userData }: { userData: UserData | null }) {
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-xl">👤</div>
           <div>
-            <p className="text-lg font-black text-slate-900">User Dashboard</p>
+            <p className="text-lg font-black text-slate-900 capitalize">{userData.userId}</p>
             <p className="text-xs text-slate-400 font-medium">{userData.email}</p>
           </div>
         </div>
@@ -1033,6 +1040,7 @@ function AssignTaskPanel({ rewards }: { rewards: AdminReward[] }) {
 function ControlsTab({
   userData,
   impersonating,
+  targetUserId,
   rewards,
   onUpdate,
   onStartImpersonation,
@@ -1040,6 +1048,7 @@ function ControlsTab({
 }: {
   userData: UserData | null;
   impersonating: string | null;
+  targetUserId: string;
   rewards: AdminReward[];
   onUpdate: (body: Record<string, any>) => Promise<void>;
   onStartImpersonation: () => Promise<void>;
@@ -1173,8 +1182,8 @@ function ControlsTab({
               <p className="font-black text-slate-900">Act as User</p>
               <p className="text-[11px] text-slate-400 font-medium">
                 {impersonating
-                  ? <span className="text-amber-600 font-black">Currently acting as user1</span>
-                  : "Browse & edit data as the user"}
+                  ? <span className="text-amber-600 font-black">Currently acting as {impersonating}</span>
+                  : `Browse & edit data as ${targetUserId || "the user"}`}
               </p>
             </div>
           </div>

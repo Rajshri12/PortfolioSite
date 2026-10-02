@@ -168,26 +168,26 @@ export default function CompassBar() {
     );
   }
 
-  if (user.role === "admin" && user.impersonating) {
-    async function stopImpersonation() {
-      await fetch("/api/admin/impersonate", { method: "DELETE" });
-      window.location.href = "/job-tracker-dashboard/admin";
-    }
-    return (
-      <div className="sticky top-0 z-40 flex items-center gap-2 px-6 py-2 bg-amber-100 border-b border-amber-300">
-        <Shield className="w-4 h-4 text-amber-700" />
-        <span className="text-xs font-black uppercase tracking-widest text-amber-800">
-          Acting as — {user.impersonating}
-        </span>
-        <button
-          onClick={stopImpersonation}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
-        >
-          Exit
-        </button>
-      </div>
-    );
+  async function stopImpersonation() {
+    await fetch("/api/admin/impersonate", { method: "DELETE" });
+    window.location.href = "/job-tracker-dashboard/admin";
   }
+
+  // While impersonating, show the acting-as banner above the full user bar
+  const impersonationBanner = user.role === "admin" && user.impersonating ? (
+    <div className="sticky top-0 z-40 flex items-center gap-2 px-6 py-2 bg-amber-100 border-b border-amber-300">
+      <Shield className="w-4 h-4 text-amber-700" />
+      <span className="text-xs font-black uppercase tracking-widest text-amber-800">
+        Acting as — {user.impersonating}
+      </span>
+      <button
+        onClick={stopImpersonation}
+        className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
+      >
+        Exit
+      </button>
+    </div>
+  ) : null;
 
   const levelProgress = user.coinsPerLevel > 0
     ? ((user.coins % user.coinsPerLevel) / user.coinsPerLevel) * 100
@@ -195,11 +195,14 @@ export default function CompassBar() {
 
   return (
     <>
+      {impersonationBanner}
+
       {/* Compass Bar */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="sticky top-0 z-40 flex items-center gap-4 px-6 py-2.5 bg-white/90 backdrop-blur-sm border-b border-slate-100 shadow-sm"
+        className="sticky z-40 flex items-center gap-4 px-6 py-2.5 bg-white/90 backdrop-blur-sm border-b border-slate-100 shadow-sm"
+        style={impersonationBanner ? { top: 37 } : { top: 0 }}
       >
         {/* Streak */}
         <div className="flex items-center gap-1.5">
@@ -334,7 +337,8 @@ export default function CompassBar() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="sticky top-[44px] z-30 flex items-center gap-2 px-6 py-2 bg-slate-50 border-b border-slate-100 text-xs text-slate-500"
+            className="sticky z-30 flex items-center gap-2 px-6 py-2 bg-slate-50 border-b border-slate-100 text-xs text-slate-500"
+            style={{ top: impersonationBanner ? 37 + 41 : 44 }}
           >
             🔕 Notifications are blocked — enable them for this site in your browser's site settings.
             <button onClick={() => setShowPushTip(false)} className="ml-auto text-slate-400 hover:text-slate-600">&times;</button>

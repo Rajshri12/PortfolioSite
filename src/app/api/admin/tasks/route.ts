@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     await connectToDatabase();
     const body = await request.json();
-    const { targetUserId = "user1", text, category, type, date, recurrence, rewardConfig } = body;
+    const { targetUserId = process.env.USER_ID ?? "user1", text, category, type, date, recurrence, rewardConfig } = body;
 
     if (!text?.trim()) return NextResponse.json({ error: "text is required" }, { status: 400 });
     if (!category) return NextResponse.json({ error: "category is required" }, { status: 400 });

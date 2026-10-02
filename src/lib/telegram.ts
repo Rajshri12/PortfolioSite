@@ -24,7 +24,7 @@ export async function getAdminChatId(): Promise<string | null> {
 export async function getUserChatId(): Promise<string | null> {
   try {
     await connectToDatabase();
-    const user = await User.findOne({ userId: "user1" }).lean();
+    const user = await User.findOne({ userId: process.env.USER_ID ?? "user1" }).lean();
     return user?.telegramChatId ?? null;
   } catch {
     return null;
