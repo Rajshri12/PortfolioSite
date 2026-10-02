@@ -27,6 +27,7 @@ import {
   LogOut,
   Gift,
   Edit2,
+  Send,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -110,6 +111,7 @@ const TABS = [
   { key: "settings",  label: "Game Settings", icon: Settings },
   { key: "controls",  label: "User Controls", icon: Shield },
   { key: "rewards",   label: "Rewards",       icon: Gift },
+  { key: "notifications", label: "Notifications", icon: Send },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -146,6 +148,27 @@ interface TaskRewardRequest {
     approvalStatus: "pending" | "approved" | "rejected";
   };
   createdAt: string;
+}
+
+interface NotificationScheduleDoc {
+  _id: string;
+  label: string;
+  emoji: string;
+  message: string;
+  time: string;
+  days: number[];
+  condition: "always" | "streak_at_risk" | "not_logged_in_today" | "happy_hour_start";
+  isActive: boolean;
+  lastSentAt: string | null;
+}
+
+interface PushDevice {
+  _id: string;
+  userId: string;
+  userAgent: string;
+  createdAt: string;
+  updatedAt: string;
+  endpointTail: string;
 }
 
 const ALERT_TYPE_LABELS: Record<string, string> = {
@@ -187,6 +210,8 @@ export default function AdminPage() {
   const [adminRewards, setAdminRewards] = useState<AdminReward[]>([]);
   const [adminRedemptions, setAdminRedemptions] = useState<AdminRedemption[]>([]);
   const [taskRewardRequests, setTaskRewardRequests] = useState<TaskRewardRequest[]>([]);
+  const [schedules, setSchedules] = useState<NotificationScheduleDoc[]>([]);
+  const [pushDevices, setPushDevices] = useState<PushDevice[]>([]);
 
   // check role + impersonation state
   useEffect(() => {
@@ -219,7 +244,7 @@ export default function AdminPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [userRes, alertsRes, txRes, configRes, rewardsRes, redemptionsRes, taskRewardsRes] = await Promise.all([
+      const [userRes, alertsRes, txRes, configRes, rewardsRes, redemptionsRes, taskRewardsRes, schedulesRes, devicesRes] = await Promise.all([
         fetch("/api/admin/user?userId=user1"),
         fetch("/api/admin/alerts?resolved=false"),
         fetch("/api/coins/history?limit=50"),
@@ -227,6 +252,8 @@ export default function AdminPage() {
         fetch("/api/admin/rewards"),
         fetch("/api/admin/redemptions"),
         fetch("/api/admin/task-rewards"),
+        fetch("/api/admin/notifications"),
+        fetch("/api/admin/notifications/log"),
       ]);
       if (userRes.ok) {
         const u = await userRes.json();
@@ -238,6 +265,8 @@ export default function AdminPage() {
       if (rewardsRes.ok) setAdminRewards((await rewardsRes.json()).rewards ?? []);
       if (redemptionsRes.ok) setAdminRedemptions((await redemptionsRes.json()).redemptions ?? []);
       if (taskRewardsRes.ok) setTaskRewardRequests((await taskRewardsRes.json()).tasks ?? []);
+      if (schedulesRes.ok) setSchedules((await schedulesRes.json()).schedules ?? []);
+      if (devicesRes.ok) setPushDevices((await devicesRes.json()).devices ?? []);
     } catch {}
     finally { setLoading(false); }
   }, []);
@@ -388,6 +417,13 @@ export default function AdminPage() {
               rewards={adminRewards}
               redemptions={adminRedemptions}
               taskRewardRequests={taskRewardRequests}
+              onRefresh={fetchAll}
+            />
+          )}
+          {activeTab === "notifications" && (
+            <NotificationsTab
+              schedules={schedules}
+              devices={pushDevices}
               onRefresh={fetchAll}
             />
           )}
@@ -1640,6 +1676,344 @@ function EmptyState({ text }: { text: string }) {
   return (
     <div className="text-center py-12">
       <p className="text-slate-400 font-medium text-sm">{text}</p>
+    </div>
+  );
+}
+
+// ── Notifications Tab ─────────────────────────────────────────────────────────
+
+const CONDITION_LABELS: Record<string, string> = {
+  always: "Always",
+  streak_at_risk: "🔥 Streak at risk",
+  not_logged_in_today: "😴 Not active today",
+  happy_hour_start: "⚡ Happy hour start",
+};
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const EMPTY_SCHEDULE: Omit<NotificationScheduleDoc, "_id" | "lastSentAt"> = {
+  label: "",
+  emoji: "🔔",
+  message: "",
+  time: "20:00",
+  days: [],
+  condition: "always",
+  isActive: true,
+};
+
+function NotificationsTab({
+  schedules,
+  devices,
+  onRefresh,
+}: {
+  schedules: NotificationScheduleDoc[];
+  devices: PushDevice[];
+  onRefresh: () => void;
+}) {
+  const [editing, setEditing] = useState<(Partial<NotificationScheduleDoc> & { _id?: string }) | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [blast, setBlast] = useState({ emoji: "💪", title: "Phoenix", message: "" });
+  const [blastResult, setBlastResult] = useState<string | null>(null);
+
+  const preview = editing
+    ? editing.message
+        ?.replaceAll("{{name}}", "Rajshri")
+        .replaceAll("{{streak}}", "12")
+        .replaceAll("{{coins}}", "1,450")
+        .replaceAll("{{day}}", "98") ?? ""
+    : "";
+
+  async function saveSchedule() {
+    if (!editing || !editing.label || !editing.message || !editing.time) return;
+    setSaving(true);
+    try {
+      const method = editing._id ? "PATCH" : "POST";
+      const url = editing._id ? `/api/admin/notifications/${editing._id}` : "/api/admin/notifications";
+      await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: editing.label,
+          emoji: editing.emoji,
+          message: editing.message,
+          time: editing.time,
+          days: editing.days,
+          condition: editing.condition,
+          isActive: editing.isActive,
+        }),
+      });
+      setEditing(null);
+      onRefresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteSchedule(id: string) {
+    await fetch(`/api/admin/notifications/${id}`, { method: "DELETE" });
+    onRefresh();
+  }
+
+  async function toggleSchedule(s: NotificationScheduleDoc) {
+    await fetch(`/api/admin/notifications/${s._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !s.isActive }),
+    });
+    onRefresh();
+  }
+
+  async function sendBlast() {
+    if (!blast.message) return;
+    setSaving(true);
+    setBlastResult(null);
+    try {
+      const res = await fetch("/api/admin/notifications/send-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...blast, target: "all" }),
+      });
+      const data = await res.json();
+      setBlastResult(res.ok ? `Sent to ${data.sent} device(s)` : `Error: ${data.error}`);
+      if (res.ok) setBlast((b) => ({ ...b, message: "" }));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+
+      {/* Send-now blast */}
+      <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center">
+            <Send className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-900">Send Now</h3>
+            <p className="text-xs text-slate-400 font-medium">One-off push — bypasses schedules, fires immediately</p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap mb-3">
+          <input
+            value={blast.emoji}
+            onChange={(e) => setBlast({ ...blast, emoji: e.target.value })}
+            className="w-16 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-center outline-none focus:border-blue-400"
+            placeholder="emoji"
+          />
+          <input
+            value={blast.title}
+            onChange={(e) => setBlast({ ...blast, title: e.target.value })}
+            className="flex-1 min-w-40 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-400"
+            placeholder="Title"
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <input
+            value={blast.message}
+            onChange={(e) => setBlast({ ...blast, message: e.target.value })}
+            className="flex-1 min-w-60 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 outline-none focus:border-blue-400"
+            placeholder="Message — e.g. Great work this week! Keep it up 🔥"
+          />
+          <button
+            onClick={sendBlast}
+            disabled={saving || !blast.message}
+            className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50"
+          >
+            {saving ? "Sending…" : "Send Push"}
+          </button>
+        </div>
+        {blastResult && <p className="text-xs font-bold text-slate-500 mt-2">{blastResult}</p>}
+      </div>
+
+      {/* Schedules */}
+      <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-black text-slate-900">Push Schedules</h3>
+            <p className="text-xs text-slate-400 font-medium">Scheduled pushes — checked every minute by the server. Times are server-local (IST on Render).</p>
+          </div>
+          <button
+            onClick={() => setEditing({ ...EMPTY_SCHEDULE })}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add
+          </button>
+        </div>
+
+        {schedules.length === 0 ? (
+          <EmptyState text="No push schedules yet — add one to start nudging." />
+        ) : (
+          <div className="space-y-3">
+            {schedules.map((s) => (
+              <div key={s._id} className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-xl shrink-0 mt-0.5">{s.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <p className="text-sm font-black text-slate-900">{s.label}</p>
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-slate-200 text-slate-600">
+                      {CONDITION_LABELS[s.condition] ?? s.condition}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-bold">
+                      {s.days.length === 0 ? "every day" : s.days.map((d) => DAY_LABELS[d]).join(", ")}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">{s.message}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    ⏰ {s.time} · last sent: {s.lastSentAt ? format(new Date(s.lastSentAt), "MMM d, HH:mm") : "never"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => toggleSchedule(s)}
+                    className={`px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all ${
+                      s.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-slate-200 text-slate-500 hover:bg-slate-300"
+                    }`}
+                  >
+                    {s.isActive ? "Active" : "Paused"}
+                  </button>
+                  <button onClick={() => setEditing(s)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => deleteSchedule(s._id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Editor modal */}
+      <AnimatePresence>
+        {editing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
+            onClick={() => setEditing(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 16 }}
+              className="bg-white rounded-[2rem] p-6 w-full max-w-lg space-y-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-black text-slate-900">
+                {editing._id ? "Edit Schedule" : "New Schedule"}
+              </h3>
+
+              <div className="flex gap-2">
+                <input
+                  value={editing.emoji ?? ""}
+                  onChange={(e) => setEditing({ ...editing, emoji: e.target.value })}
+                  className="w-16 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-center outline-none focus:border-blue-400"
+                  placeholder="🔔"
+                />
+                <input
+                  value={editing.label ?? ""}
+                  onChange={(e) => setEditing({ ...editing, label: e.target.value })}
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-400"
+                  placeholder="Schedule name — e.g. Evening streak nudge"
+                />
+              </div>
+
+              <textarea
+                value={editing.message ?? ""}
+                onChange={(e) => setEditing({ ...editing, message: e.target.value })}
+                rows={2}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 resize-none"
+                placeholder="Message — supports {{name}}, {{streak}}, {{coins}}, {{day}}"
+              />
+              {preview && (
+                <p className="text-[11px] text-slate-400 font-medium px-1">
+                  Preview: <span className="text-slate-600 font-bold">{preview}</span>
+                </p>
+              )}
+
+              <div className="flex gap-2 flex-wrap">
+                <input
+                  type="time"
+                  value={editing.time ?? ""}
+                  onChange={(e) => setEditing({ ...editing, time: e.target.value })}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-400"
+                />
+                <select
+                  value={editing.condition ?? "always"}
+                  onChange={(e) => setEditing({ ...editing, condition: e.target.value as NotificationScheduleDoc["condition"] })}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-400"
+                >
+                  {Object.entries(CONDITION_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Days (empty = every day)</p>
+                <div className="flex gap-1.5">
+                  {DAY_LABELS.map((label, i) => {
+                    const active = (editing.days ?? []).includes(i);
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          const days = editing.days ?? [];
+                          setEditing({ ...editing, days: active ? days.filter((d) => d !== i) : [...days, i] });
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                          active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button onClick={() => setEditing(null)} className="px-5 py-2 text-slate-500 font-black text-xs uppercase tracking-wider hover:bg-slate-100 rounded-xl transition-all">
+                  Cancel
+                </button>
+                <button
+                  onClick={saveSchedule}
+                  disabled={saving || !editing.label || !editing.message || !editing.time}
+                  className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Registered devices */}
+      <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+        <h3 className="text-lg font-black text-slate-900 mb-1">Registered Devices</h3>
+        <p className="text-xs text-slate-400 font-medium mb-4">Browsers with push enabled. Expired devices are pruned automatically on send.</p>
+        {devices.length === 0 ? (
+          <EmptyState text="No devices subscribed yet — the user needs to enable notifications from the Compass Bar bell." />
+        ) : (
+          <div className="space-y-2">
+            {devices.map((d) => (
+              <div key={d._id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-lg">📱</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black text-slate-700">{d.userId}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{d.userAgent || "unknown browser"}</p>
+                </div>
+                <p className="text-[10px] text-slate-400 shrink-0">added {format(new Date(d.createdAt), "MMM d")}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

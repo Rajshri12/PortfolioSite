@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, Coins, Trophy, Zap, Shield } from "lucide-react";
+import { Flame, Coins, Trophy, Zap, Shield, Bell, BellOff } from "lucide-react";
 import { apiFetch } from "@/lib/backend";
 
 interface UserState {
@@ -18,9 +18,20 @@ interface UserState {
   impersonating: string | null;
 }
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const arr = new Uint8Array(new ArrayBuffer(raw.length));
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
 export default function CompassBar() {
   const [user, setUser] = useState<UserState | null>(null);
   const [unseenBadges, setUnseenBadges] = useState<Array<{ slug: string; title: string; emoji: string }>>([]);
+  const [pushState, setPushState] = useState<"loading" | "on" | "off" | "unsupported" | "denied">("loading");
+  const [showPushTip, setShowPushTip] = useState(false);
 
   const fetchMe = useCallback(async () => {
     try {
@@ -40,10 +51,73 @@ export default function CompassBar() {
     } catch {}
   }, []);
 
+  const checkPushStatus = useCallback(async () => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setPushState("unsupported");
+      return;
+    }
+    try {
+      const res = await apiFetch("/api/push/status");
+      if (res.ok) {
+        const data = await res.json();
+        setPushState(data.subscribed ? "on" : Notification.permission === "denied" ? "denied" : "off");
+      }
+    } catch {
+      setPushState("off");
+    }
+  }, []);
+
   useEffect(() => {
     fetchMe();
     fetchUnseenBadges();
-  }, [fetchMe, fetchUnseenBadges]);
+    checkPushStatus();
+    // Register service worker once (push receive + PWA installability)
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, [fetchMe, fetchUnseenBadges, checkPushStatus]);
+
+  async function togglePush() {
+    if (pushState === "unsupported") return;
+
+    if (pushState === "on") {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) await apiFetch("/api/push/subscribe", { method: "DELETE", body: JSON.stringify({ endpoint: sub.endpoint }) });
+        await sub?.unsubscribe();
+      } catch {}
+      setPushState("off");
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "denied") {
+        setPushState("denied");
+        setShowPushTip(true);
+        return;
+      }
+      const res = await apiFetch("/api/push/status");
+      const { publicKey } = await res.json();
+      if (!publicKey) return;
+
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      }
+      await apiFetch("/api/push/subscribe", {
+        method: "POST",
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      });
+      setPushState("on");
+    } catch {}
+  }
 
   async function dismissBadge(slug: string) {
     await apiFetch(`/api/badges/${slug}/seen`, { method: "PATCH" });
@@ -142,6 +216,33 @@ export default function CompassBar() {
           </>
         )}
 
+        {/* Push notification bell */}
+        <div className="w-px h-4 bg-slate-200" />
+        <button
+          onClick={togglePush}
+          title={
+            pushState === "on"
+              ? "Notifications on — click to disable"
+              : pushState === "denied"
+              ? "Notifications blocked in browser settings"
+              : "Enable push notifications"
+          }
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all ${
+            pushState === "on"
+              ? "bg-emerald-50 hover:bg-emerald-100"
+              : "hover:bg-slate-100"
+          }`}
+        >
+          {pushState === "on" ? (
+            <Bell className="w-4 h-4 text-emerald-600" />
+          ) : (
+            <BellOff className="w-4 h-4 text-slate-400" />
+          )}
+          <span className={`text-xs font-medium ${pushState === "on" ? "text-emerald-700" : "text-slate-400"}`}>
+            {pushState === "on" ? "alerts on" : "alerts off"}
+          </span>
+        </button>
+
         {/* Happy Hour badge */}
         <AnimatePresence>
           {user.isHappyHour && (
@@ -160,6 +261,21 @@ export default function CompassBar() {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Push denied tip */}
+      <AnimatePresence>
+        {showPushTip && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="sticky top-[44px] z-30 flex items-center gap-2 px-6 py-2 bg-slate-50 border-b border-slate-100 text-xs text-slate-500"
+          >
+            🔕 Notifications are blocked — enable them for this site in your browser's site settings.
+            <button onClick={() => setShowPushTip(false)} className="ml-auto text-slate-400 hover:text-slate-600">&times;</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* New badge toast */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
