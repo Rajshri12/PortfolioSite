@@ -24,6 +24,10 @@ export async function PATCH(
     await connectToDatabase();
     const userId = session.impersonating ?? session.userId;
 
+    // Admins acting as themselves (not impersonating) can update progress
+    // but should NOT receive any rewards — rewards are for users only.
+    const isAdminActingAsSelf = session.role === "admin" && !session.impersonating;
+
     const prev = await TopicProgress.findOne({ userId, topicId: id });
     const wasCompleted = prev?.status === "completed";
 
@@ -38,6 +42,11 @@ export async function PATCH(
     let customReward: { label: string; quantity: number } | null = null;
     let stageReward: { coins?: number; custom?: { label: string; quantity: number } } | null = null;
     let newBadges: Array<{ slug: string; title: string; emoji: string }> = [];
+
+    // Skip all reward logic for admin acting as themselves
+    if (isAdminActingAsSelf) {
+      return NextResponse.json({ ...updated.toObject(), coinsAwarded: 0, happyHour: false, customReward: null, stageReward: null, newBadges: [] });
+    }
 
     // Reverse coins when un-completing a topic
     if (wasCompleted && status !== "completed") {
