@@ -17,6 +17,7 @@ export type BadgeEvent =
   | "cold_email_sent"
   | "stake_won"
   | "vault_saved"
+  | "focus_session"
   | "streak_updated";
 
 interface BadgeDef {
@@ -198,6 +199,16 @@ const BADGE_DEFS: BadgeDef[] = [
       return count >= 1;
     },
   },
+  {
+    slug: "deep_worker",
+    title: "Deep Worker",
+    emoji: "🎯",
+    bonusCoins: 40,
+    check: async (userId) => {
+      const count = await CoinTransaction.countDocuments({ userId, event: "focus_session" });
+      return count >= 5;
+    },
+  },
 ];
 
 const EVENT_BADGE_MAP: Record<BadgeEvent, string[]> = {
@@ -210,6 +221,7 @@ const EVENT_BADGE_MAP: Record<BadgeEvent, string[]> = {
   cold_email_sent: ["cold_blood"],
   stake_won: ["stake_winner"],
   vault_saved: ["vault_keeper"],
+  focus_session: ["deep_worker"],
 };
 
 export async function checkAndAwardBadges(

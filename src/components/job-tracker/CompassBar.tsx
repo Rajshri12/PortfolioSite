@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Flame, Coins, Trophy, Zap, Shield, Bell, BellOff } from "lucide-react";
 import { apiFetch } from "@/lib/backend";
+import { on, coinEvents } from "@/lib/celebrate";
 
 interface UserState {
   coins: number;
@@ -16,6 +17,13 @@ interface UserState {
   happyHourEnd: number;
   role: "admin" | "user";
   impersonating: string | null;
+}
+
+interface FloatUp {
+  id: number;
+  amount: number;
+  x: number;
+  y: number;
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -32,6 +40,11 @@ export default function CompassBar() {
   const [unseenBadges, setUnseenBadges] = useState<Array<{ slug: string; title: string; emoji: string }>>([]);
   const [pushState, setPushState] = useState<"loading" | "on" | "off" | "unsupported" | "denied">("loading");
   const [showPushTip, setShowPushTip] = useState(false);
+  const [floatUps, setFloatUps] = useState<FloatUp[]>([]);
+  const [levelUp, setLevelUp] = useState<number | null>(null);
+  const [streakBroken, setStreakBroken] = useState(false);
+  const [coinPulse, setCoinPulse] = useState(0);
+  const floatId = useRef(0);
 
   const fetchMe = useCallback(async () => {
     try {
@@ -76,6 +89,25 @@ export default function CompassBar() {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, [fetchMe, fetchUnseenBadges, checkPushStatus]);
+
+  // Gamification celebrations from any page
+  useEffect(() => {
+    const offAward = on("coins:award", (payload: { amount?: number; screenX?: number; screenY?: number }) => {
+      const amount = payload?.amount ?? 0;
+      if (amount <= 0) return;
+      setCoinPulse((p) => p + 1);
+      const id = ++floatId.current;
+      // Spawn near the provided coords, else from the coins stat (set below via data attr fallback)
+      const fallback = document.getElementById("cb-coins-stat")?.getBoundingClientRect();
+      const x = payload?.screenX ?? (fallback ? fallback.left + fallback.width / 2 : 120);
+      const y = payload?.screenY ?? (fallback ? fallback.top : 20);
+      setFloatUps((prev) => [...prev, { id, amount, x, y }]);
+      setTimeout(() => setFloatUps((prev) => prev.filter((f) => f.id !== id)), 1300);
+    });
+    const offLevel = on("level:up", (level: number) => setLevelUp(level));
+    const offStreak = on("streak:broken", () => setStreakBroken(true));
+    return () => { offAward(); offLevel(); offStreak(); };
+  }, []);
 
   async function togglePush() {
     if (pushState === "unsupported") return;
@@ -181,10 +213,43 @@ export default function CompassBar() {
         <div className="w-px h-4 bg-slate-200" />
 
         {/* Coins */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm">🪙</span>
-          <span className="text-sm font-black text-slate-800">{user.coins.toLocaleString()}</span>
+        <div id="cb-coins-stat" className="relative flex items-center gap-1.5">
+          <motion.span
+            key={coinPulse}
+            initial={coinPulse > 0 ? { scale: 1.5 } : false}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 500, damping: 15 }}
+            className="text-sm"
+          >
+            🪙
+          </motion.span>
+          <motion.span
+            key={`c-${coinPulse}`}
+            initial={coinPulse > 0 ? { scale: 1.35, color: "#f59e0b" } : false}
+            animate={{ scale: 1, color: "#1e293b" }}
+            transition={{ type: "spring", stiffness: 400, damping: 18 }}
+            className="text-sm font-black"
+          >
+            {user.coins.toLocaleString()}
+          </motion.span>
           <span className="text-xs text-slate-400 font-medium">coins</span>
+
+          {/* +N float-ups */}
+          <AnimatePresence>
+            {floatUps.map((f) => (
+              <motion.span
+                key={f.id}
+                initial={{ opacity: 0, y: 0, x: "-50%", scale: 0.7 }}
+                animate={{ opacity: [0, 1, 1, 0], y: -44, scale: 1.15 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.2, times: [0, 0.15, 0.7, 1], ease: "easeOut" }}
+                className="fixed z-[60] pointer-events-none text-sm font-black text-amber-500 drop-shadow"
+                style={{ left: f.x, top: f.y }}
+              >
+                +{f.amount} 🪙
+              </motion.span>
+            ))}
+          </AnimatePresence>
         </div>
 
         <div className="w-px h-4 bg-slate-200" />
@@ -299,6 +364,62 @@ export default function CompassBar() {
           ))}
         </AnimatePresence>
       </div>
+
+      {/* Streak broken banner */}
+      <AnimatePresence>
+        {streakBroken && (
+          <motion.div
+            initial={{ opacity: 0, y: -30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -30 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-6 py-3.5 bg-white rounded-[1.8rem] shadow-2xl border border-slate-100 max-w-[92vw]"
+          >
+            <span className="text-2xl shrink-0">😔</span>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-slate-900">You missed yesterday — streak reset to 0.</p>
+              <p className="text-xs text-slate-500 font-medium">A new streak starts right now. 💪</p>
+            </div>
+            <button
+              onClick={() => setStreakBroken(false)}
+              className="ml-2 shrink-0 px-4 py-1.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-700 transition-all"
+            >
+              Got it
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Level-up celebration overlay */}
+      <AnimatePresence>
+        {levelUp !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none"
+            onClick={() => setLevelUp(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0, rotate: -6 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 14 }}
+              className="bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 rounded-[3rem] px-14 py-12 text-center shadow-2xl border border-white/10"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.4, 1] }}
+                transition={{ delay: 0.15, duration: 0.6 }}
+                className="text-6xl mb-3"
+              >
+                🏆
+              </motion.div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400">Level Up!</p>
+              <p className="text-5xl font-black text-white mt-2">Level {levelUp}</p>
+              <p className="text-xs text-slate-300 font-medium mt-3">Your consistency is compounding. Keep going.</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

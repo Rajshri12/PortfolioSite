@@ -48,6 +48,7 @@ export interface IGameConfig extends Document {
     issueLogged: number;
     vaultSaved: number;
     coldEmailSent: number;
+    focusSession: number;
   };
   level: {
     coinsPerLevel: number;
@@ -104,6 +105,7 @@ const GameConfigSchema = new Schema<IGameConfig>(
       issueLogged: { type: Number, default: 15 },
       vaultSaved: { type: Number, default: 10 },
       coldEmailSent: { type: Number, default: 30 },
+      focusSession: { type: Number, default: 20 },
     },
     level: {
       coinsPerLevel: { type: Number, default: 100 },

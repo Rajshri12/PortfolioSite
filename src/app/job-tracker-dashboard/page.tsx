@@ -39,6 +39,9 @@ import {
   startOfWeek as startOfWeekFn,
 } from "date-fns";
 import { useTasks, Task } from "@/context/TaskContext";
+import { coinEvents } from "@/lib/celebrate";
+import FocusTimer from "@/components/job-tracker/FocusTimer";
+import WinOfTheDay from "@/components/job-tracker/WinOfTheDay";
 
 const FALLBACK_QUOTE = { text: "Begin. The universe rewards motion.", author: "The Path" };
 const FALLBACK_NORTH_STAR = `Dear Rajshri,\n\nYou started this because you believed you could become more. That belief was correct.\n\nKeep going.`;
@@ -80,7 +83,20 @@ export default function DailyTracker() {
   const fetchMe = useCallback(async () => {
     try {
       const res = await fetch("/api/me");
-      if (res.ok) setUserState(await res.json());
+      if (res.ok) {
+        const data: UserState = await res.json();
+        setUserState((prev) => {
+          // Level-up celebration: coins crossed into a new level
+          if (prev && data.level > prev.level && data.role === "user") {
+            coinEvents.levelUp(data.level);
+          }
+          // Streak broken: streak dropped and we didn't cause it by unchecking
+          if (prev && data.streak < prev.streak && data.role === "user") {
+            coinEvents.streakBroken();
+          }
+          return data;
+        });
+      }
     } catch {}
   }, []);
 
@@ -211,8 +227,15 @@ export default function DailyTracker() {
         body: JSON.stringify({ completedDates: newCompletedDates }),
       });
       const data = await res.json();
-      if (!data.success) fetchTasks();
-      else if (data.coinsAwarded) fetchMe();
+      if (!data.success) {
+        fetchTasks();
+      } else if (data.coinsAwarded > 0) {
+        coinEvents.award({ amount: data.coinsAwarded });
+        fetchMe();
+      } else if (data.customReward) {
+        coinEvents.award({ amount: 0 });
+        fetchMe();
+      }
     } catch {
       fetchTasks();
     }
@@ -775,6 +798,9 @@ export default function DailyTracker() {
             </div>
           </div>
 
+          {/* Win of the Day */}
+          <WinOfTheDay dateStr={dateStr} />
+
           {/* Next Reward Card */}
           <div className="glass-panel bg-white rounded-[2.5rem] p-6 border-slate-100 shadow-sm space-y-4">
             <div className="flex items-center gap-3">
@@ -1041,6 +1067,8 @@ export default function DailyTracker() {
           </div>
         )}
       </AnimatePresence>
+
+      <FocusTimer tasks={tasks.map((t) => ({ id: t._id, text: t.text }))} />
     </div>
   );
 }

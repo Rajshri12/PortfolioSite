@@ -21,6 +21,7 @@ export type CoinEvent =
   | "vault_saved"
   | "cold_email"
   | "badge_bonus"
+  | "focus_session"
   | "admin_adjust";
 
 // Happy-hour-eligible events
@@ -33,6 +34,7 @@ const HAPPY_HOUR_ELIGIBLE = new Set<CoinEvent>([
   "journal_issue",
   "vault_saved",
   "cold_email",
+  "focus_session",
 ]);
 
 export async function getGameConfig() {
